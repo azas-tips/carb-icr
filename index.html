@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>血糖・食事・インスリン記録ノート</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root{
+    --teal:#0f766e; --teal-d:#0b5650; --bg:#f3f5f7; --card:#ffffff;
+    --ink:#1f2933; --muted:#6b7785; --line:#e3e8ec; --accent:#d97706;
+    --good:#16a34a; --warn:#dc2626; --soft:#eef6f5;
+    --radius:14px; --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.5;
+    padding-bottom:calc(72px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    background:var(--teal); color:#fff; padding:14px 16px;
+    padding-top:calc(14px + env(safe-area-inset-top));
+    position:sticky; top:0; z-index:20; box-shadow:var(--shadow);
+  }
+  header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.02em}
+  header .sub{font-size:11px;opacity:.85;margin-top:2px}
+  main{padding:14px 14px 0;max-width:560px;margin:0 auto}
+  .view{display:none;animation:fade .18s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+  .card h2{font-size:14px;margin:0 0 12px;color:var(--teal);font-weight:700;display:flex;align-items:center;gap:6px}
+  label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px;font-weight:600}
+  .row{display:flex;gap:10px}
+  .row > .field{flex:1}
+  .field{margin-bottom:12px}
+  input,select,textarea{
+    width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:10px;
+    font-size:16px;background:#fff;color:var(--ink);font-family:inherit;transition:border-color .15s;
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal)}
+  textarea{resize:vertical;min-height:48px}
+  .hint{font-size:11px;color:var(--muted);margin-top:3px}
+
+  .net{background:var(--soft);border-radius:12px;padding:14px;text-align:center;margin:4px 0 14px}
+  .net .big{font-size:30px;font-weight:800;color:var(--teal);line-height:1.1}
+  .net .lbl{font-size:11px;color:var(--muted);font-weight:600}
+
+  button{font-family:inherit;cursor:pointer;border:none}
+  .btn{
+    width:100%;padding:14px;background:var(--teal);color:#fff;border-radius:12px;
+    font-size:16px;font-weight:700;box-shadow:var(--shadow);
+  }
+  .btn:active{background:var(--teal-d)}
+  .btn.sec{background:#fff;color:var(--teal);border:1.5px solid var(--teal);box-shadow:none}
+  .btn.danger{background:#fff;color:var(--warn);border:1.5px solid var(--warn);box-shadow:none}
+  .btn.sm{padding:9px;font-size:13px;border-radius:9px}
+
+  /* tab bar */
+  nav{
+    position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);
+    display:flex;z-index:20;padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav button{
+    flex:1;background:none;padding:9px 0 8px;color:var(--muted);font-size:10px;font-weight:600;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+  }
+  nav button.active{color:var(--teal)}
+  nav .ic{font-size:20px;line-height:1}
+
+  /* log list */
+  .meal{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;position:relative}
+  .meal .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .meal .when{font-size:12px;color:var(--muted)}
+  .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--soft);color:var(--teal)}
+  .meal .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px;margin-top:6px}
+  .meal .grid div span{display:block;color:var(--muted);font-size:10px}
+  .meal .grid div b{font-size:15px;font-weight:700}
+  .meal .icr{margin-top:8px;font-size:12px;padding-top:8px;border-top:1px dashed var(--line)}
+  .meal .icr b{font-size:16px;color:var(--teal)}
+  .pill{font-size:10px;padding:1px 7px;border-radius:10px;margin-left:6px;font-weight:700}
+  .pill.ok{background:#dcfce7;color:var(--good)}
+  .pill.skip{background:#f1f5f9;color:var(--muted)}
+  .meal .acts{display:flex;gap:8px;margin-top:10px}
+  .meal .acts button{flex:1}
+
+  /* analysis */
+  .stat{text-align:center;padding:18px 12px;background:var(--soft);border-radius:12px;margin-bottom:12px}
+  .stat .v{font-size:38px;font-weight:800;color:var(--teal);line-height:1}
+  .stat .u{font-size:13px;color:var(--muted);font-weight:600}
+  .stat .n{font-size:11px;color:var(--muted);margin-top:6px}
+  .mealstat{display:flex;justify-content:space-between;align-items:center;padding:11px 4px;border-bottom:1px solid var(--line)}
+  .mealstat:last-child{border:none}
+  .mealstat .l{font-size:13px;font-weight:600}
+  .mealstat .r{font-size:17px;font-weight:800;color:var(--teal)}
+  .mealstat .r small{font-size:11px;color:var(--muted);font-weight:600}
+
+  .empty{text-align:center;color:var(--muted);font-size:13px;padding:30px 10px}
+  .disc{font-size:11px;color:var(--muted);background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.5}
+  .disc b{color:var(--accent)}
+  .toast{
+    position:fixed;bottom:84px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:10px 18px;border-radius:24px;font-size:13px;
+    opacity:0;transition:.25s;z-index:40;pointer-events:none;white-space:nowrap;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .seg{display:flex;gap:6px;margin-bottom:12px}
+  .seg button{flex:1;padding:9px 0;border:1.5px solid var(--line);background:#fff;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted)}
+  .seg button.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+  details{margin-top:8px}
+  summary{font-size:12px;color:var(--teal);font-weight:600;cursor:pointer}
+  details p{font-size:12px;color:var(--muted);line-height:1.6}
+  code.f{background:var(--soft);padding:1px 5px;border-radius:4px;font-size:11px}
+
+  /* physician report (print) */
+  #report{display:none}
+  @media print{
+    body.printing header, body.printing main, body.printing nav, body.printing .toast{display:none!important}
+    body.printing{padding:0;background:#fff}
+    body.printing #report{display:block;padding:10mm;font-size:11px;color:#000}
+    #report h1{font-size:15px;margin:0 0 2mm}
+    #report .meta{font-size:10px;color:#444;margin-bottom:4mm}
+    #report table{width:100%;border-collapse:collapse;margin-bottom:4mm}
+    #report th,#report td{border:1px solid #999;padding:2px 4px;font-size:9.5px;text-align:center}
+    #report th{background:#eee}
+    #report .note{font-size:9.5px;color:#444;border:1px solid #999;padding:2mm;line-height:1.5}
+  }
+</style>
+</head>
+<body>
+<div id="consent" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:100;align-items:center;justify-content:center;padding:18px">
+  <div style="background:#fff;border-radius:16px;max-width:430px;width:100%;padding:22px;max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+    <h2 style="margin:0 0 12px;color:var(--teal);font-size:18px">ご利用の前に</h2>
+    <p style="font-size:13px;line-height:1.8;color:var(--ink);margin:0">
+      本アプリは、血糖・食事・インスリンの<b>記録と集計を補助するツール</b>です。<br>
+      表示される糖質量や集計値はすべて<b>記録を整理した参考値</b>であり、診断・治療、インスリン投与量の計算や治療パラメータの決定は行いません。<br>
+      集計結果は、受診時に主治医にお見せいただくための資料です。<br>
+      <b style="color:var(--accent)">投与量・治療方針の調整は、必ず主治医の指示に従ってください。</b><br>
+      本アプリの利用により生じたいかなる結果についても、作者は責任を負いません（PolyForm Noncommercial / 無保証）。
+    </p>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:16px 0;font-weight:600;color:var(--ink)">
+      <input type="checkbox" id="consent-check" style="width:auto;margin-top:3px">
+      上記を理解し、記録・集計ツールとして利用することに同意します
+    </label>
+    <button class="btn" id="consent-ok" disabled style="opacity:.5">同意して使う</button>
+  </div>
+</div>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="flex:1;min-width:0">
+      <h1>血糖・食事・インスリン記録ノート</h1>
+      <div class="sub">記録と、公知の計算式による集計（主治医との相談用）</div>
+    </div>
+    <button id="install-btn" style="display:none;flex:0 0 auto;background:#fff;color:var(--teal);border-radius:20px;padding:8px 14px;font-size:13px;font-weight:700;box-shadow:var(--shadow)">⬇ インストール</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ 記録 ============ -->
+  <section id="view-entry" class="view active">
+    <div class="card">
+      <h2>🍽 食事を記録</h2>
+
+      <div class="seg" id="mealtype-seg">
+        <button data-mt="朝" class="on">朝</button>
+        <button data-mt="昼">昼</button>
+        <button data-mt="夕">夕</button>
+        <button data-mt="間食">間食</button>
+      </div>
+
+      <div class="field">
+        <label>日時</label>
+        <input type="datetime-local" id="f-datetime">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>炭水化物 (g)</label>
+          <input type="number" id="f-carbs" inputmode="decimal" step="0.1" placeholder="例 60">
+          <div class="hint">食品の炭水化物量</div>
+        </div>
+        <div class="field">
+          <label>食物繊維 (g)</label>
+          <input type="number" id="f-fiber" inputmode="decimal" step="0.1" placeholder="例 8">
+          <div class="hint">食品の食物繊維量</div>
+        </div>
+      </div>
+
+      <div class="net">
+        <div class="lbl">糖質（炭水化物 − 食物繊維）</div>
+        <div class="big"><span id="net-val">0</span> g</div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>インスリン (単位)</label>
+          <input type="number" id="f-units" inputmode="decimal" step="0.5" placeholder="例 4">
+        </div>
+        <div class="field">
+          <label>食前血糖 (mg/dL)</label>
+          <input type="number" id="f-pre" inputmode="numeric" step="1" placeholder="例 110">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>食後血糖 (mg/dL) <span style="font-weight:400">※2〜3時間後</span></label>
+        <input type="number" id="f-post" inputmode="numeric" step="1" placeholder="例 150（ピーク後・食前と同条件）">
+      </div>
+
+      <div class="field">
+        <label>基礎インスリン（この日・上書き, U/日）<span style="font-weight:400">任意</span></label>
+        <input type="number" id="f-basal" inputmode="decimal" step="0.1" placeholder="空欄なら設定の固定値を使用">
+        <div class="hint">基礎を変えた日だけ入力。日付単位で保存されます。</div>
+      </div>
+
+      <div class="field">
+        <label>メモ（任意）</label>
+        <textarea id="f-note" placeholder="献立・体調・運動など"></textarea>
+      </div>
+
+      <button class="btn" id="save-btn">記録する</button>
+      <input type="hidden" id="edit-id">
+    </div>
+  </section>
+
+  <!-- ============ 一覧 ============ -->
+  <section id="view-log" class="view">
+    <div class="card">
+      <h2>📋 記録一覧 <span id="log-count" style="color:var(--muted);font-weight:600;font-size:12px"></span></h2>
+      <div id="log-list"></div>
+    </div>
+  </section>
+
+  <!-- ============ 集計 ============ -->
+  <section id="view-icr" class="view">
+    <div class="card">
+      <h2>💉 1日インスリン量（TDD）の記録</h2>
+      <div class="field">
+        <label>総インスリン量を記録／更新（ポンプの実測値）</label>
+        <div class="row">
+          <input type="date" id="t-date" style="flex:1.3">
+          <input type="number" id="t-units" inputmode="decimal" step="0.1" placeholder="例 28 (U)" style="flex:1">
+          <button class="btn sm" id="t-save" style="width:auto;flex:0 0 auto;padding:0 16px">保存</button>
+        </div>
+        <div class="hint">毎朝、前日の総量をポンプで確認して入力。実測値があれば集計に優先して使います。</div>
+      </div>
+      <div id="tdd-body"></div>
+      <details>
+        <summary>TDD集計について</summary>
+        <p>
+        その日の <b>TDD = 基礎(固定値 or 上書き) + ボーラス合計</b> を、記録から単純合計します。
+        ボーラスは朝・昼・夕・間食の単位の合計です（記録漏れがあると過小になります）。<br><br>
+        本アプリは、TDDからISF（効果値）やカーボ比の候補値を計算・提示することはしません。
+        TDDを用いた初期目安の考え方（いわゆる1800ルール・500ルール等）は糖尿病診療の文献に記載のある公知の方法ですが、
+        その適用や数値の決定は主治医が行うものです。集計したTDDは受診時の資料としてお使いください。
+        </p>
+      </details>
+    </div>
+    <div class="card">
+      <h2>📊 集計：糖質/インスリン比</h2>
+      <div class="disc">
+        <b>⚠ 医療上の注意</b>　本アプリは記録と集計の補助ツールです。表示される集計値は治療パラメータの決定や投与量の計算を行うものではありません。集計結果は主治医との相談にお使いいただき、投与量・治療方針の調整は必ず主治医の指示に従ってください。
+      </div>
+      <div class="field" style="margin:4px 0 12px">
+        <label for="agg-period">集計期間</label>
+        <select id="agg-period">
+          <option value="7">直近 7日</option>
+          <option value="14">直近 14日</option>
+          <option value="30" selected>直近 30日</option>
+          <option value="60">直近 60日</option>
+          <option value="90">直近 90日</option>
+          <option value="custom">カスタム（期間指定）</option>
+        </select>
+        <div class="row" id="agg-custom" style="margin-top:8px;display:none">
+          <input type="date" id="agg-from" style="flex:1">
+          <span style="align-self:center;color:var(--muted)">〜</span>
+          <input type="date" id="agg-to" style="flex:1">
+        </div>
+        <div class="hint">選んだ期間の記録だけを、下の中央値・時間帯別・主治医用レポートの集計対象にします。</div>
+      </div>
+      <div id="icr-overall"></div>
+      <div id="icr-bymeal"></div>
+      <div class="field" style="margin-top:14px">
+        <button class="btn sec sm" id="print-report">🖨 主治医用レポートを表示・印刷</button>
+        <div class="hint">上で選んだ集計期間の記録と集計を、受診時に見せやすい一覧にまとめます。</div>
+      </div>
+      <details>
+        <summary>集計の方法について</summary>
+        <p>
+        記録した各食事について、公知のカーボカウント法の基本式<br>
+        <code class="f">糖質 (g) ÷ インスリン (単位)</code><br>
+        を機械的に計算し、一覧に表示します。<br><br>
+        全体・時間帯別の代表値（中央値）の集計には、食前と食後の血糖差が
+        ±30 mg/dL 以内に収まった食事のみを用います。これは「血糖がほぼ食前値に戻った食事で
+        比を確認する」という、カーボカウント指導の文献に記載のある検証手順に基づくものです（出典はREADME参照）。
+        中央値は外れ値の影響を受けにくい一般的な統計処理です。<br><br>
+        本アプリは、この集計値をもとに投与量を計算したり、設定値として推奨したりすることはありません。
+        集計値の解釈と治療への反映は、主治医にご相談ください。
+        </p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ グラフ ============ -->
+  <section id="view-charts" class="view">
+    <div class="card">
+      <h2>① 糖質 × インスリン単位</h2>
+      <div id="chart-scatter"></div>
+      <div class="hint" style="margin-top:6px">記録の散布図です。点のばらつきや傾向は、受診時に主治医と確認するための参考表示です。</div>
+    </div>
+    <div class="card">
+      <h2>② 糖質/インスリン比の推移</h2>
+      <div id="chart-icr"></div>
+    </div>
+    <div class="card">
+      <h2>③ TDD（1日総量）の推移</h2>
+      <div id="chart-tdd"></div>
+    </div>
+    <div class="card">
+      <h2>④ 食前 → 食後 血糖の変化</h2>
+      <div id="chart-bg"></div>
+      <div class="hint" style="margin-top:6px">○=食前, ●=食後。緑=食後が目標域(70〜180)、赤=高すぎ/低すぎ。</div>
+    </div>
+  </section>
+
+  <!-- ============ 設定 ============ -->
+  <section id="view-settings" class="view">
+    <div class="card">
+      <h2>⚙️ 設定</h2>
+      <div class="field">
+        <label>基礎インスリン 1日量 (U/日)　固定値</label>
+        <input type="number" id="s-basal" inputmode="decimal" step="0.1" placeholder="例 12（レートU/h × 24）">
+        <div class="hint">ポンプの固定基礎の1日合計。レートで管理なら U/h × 24 を入れてください。日ごとに変えた日は記録画面で上書きできます。TDDの単純合計にのみ使用します。</div>
+      </div>
+      <button class="btn" id="save-settings">設定を保存</button>
+    </div>
+
+    <div class="card">
+      <h2>🧬 インスリン方式（期間）</h2>
+      <div class="row">
+        <input type="date" id="r-date" style="flex:1.3">
+        <select id="r-type" style="flex:1.3">
+          <option value="pump">ポンプ</option>
+          <option value="mdi">MDI（超速効+持効型）</option>
+          <option value="mix">Mix（混合型）</option>
+        </select>
+        <button class="btn sm" id="r-add" style="width:auto;flex:0 0 auto;padding:0 14px">追加</button>
+      </div>
+      <div class="hint">方式を切り替えた日を登録すると、記録が期間ごとに分類されます。TDD平均は現在の方式の期間で集計し、Mix期の記録は糖質/インスリン比の集計対象外として表示します。未登録なら全期間を対象にします。</div>
+      <div id="regimen-list" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="install-card">
+      <h2>📲 ホーム画面に追加（アプリ化）</h2>
+      <button class="btn" id="install-btn2" style="display:none">⬇ このアプリをインストール</button>
+      <div id="install-help" class="hint" style="line-height:1.7">
+        <b>Android Chrome:</b> 右上メニュー（⋮）→「アプリをインストール」または「ホーム画面に追加」<br>
+        <b>iPhone Safari:</b> 共有ボタン（□↑）→「ホーム画面に追加」<br>
+        追加するとアイコンから全画面で起動でき、オフラインでも動きます。
+      </div>
+      <div id="install-done" class="hint" style="display:none;color:var(--good);font-weight:700">✓ インストール済みです</div>
+    </div>
+
+    <div class="card">
+      <h2>💾 データ</h2>
+      <div class="field"><button class="btn sec sm" id="export-btn">バックアップを書き出す (JSON)</button></div>
+      <div class="field">
+        <label>バックアップを読み込む</label>
+        <input type="file" id="import-file" accept="application/json">
+      </div>
+      <button class="btn danger sm" id="clear-btn">全データを削除</button>
+      <div class="hint" style="margin-top:10px">データはこの端末のブラウザ内だけに保存されます（サーバー送信なし）。機種変更前はバックアップを書き出してください。</div>
+    </div>
+
+    <div class="card">
+      <h2>ℹ️ このアプリについて</h2>
+      <div class="hint" style="line-height:1.7">
+        血糖・食事・インスリンの記録と、公知の計算式による集計を補助するツールです。
+        表示される糖質量・集計値はすべて<b>記録を整理した参考値</b>であり、診断・治療、投与量の計算、治療パラメータの決定は行いません。
+        集計結果は受診時の資料としてお使いください。<b>投与量・治療方針は必ず主治医の指示に従ってください。</b><br><br>
+        ライセンス: <b>PolyForm Noncommercial 1.0.0</b>（非商用・ソース公開／無保証）<br>
+        ソース: <a href="https://github.com/azas-tips/carb-icr" target="_blank" rel="noopener" style="color:var(--teal)">github.com/azas-tips/carb-icr</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-view="entry" class="active"><span class="ic">✏️</span>記録</button>
+  <button data-view="log"><span class="ic">📋</span>一覧</button>
+  <button data-view="icr"><span class="ic">📊</span>集計</button>
+  <button data-view="charts"><span class="ic">📈</span>グラフ</button>
+  <button data-view="settings"><span class="ic">⚙️</span>設定</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<div id="report"></div>
+
+<script>
+"use strict";
+const MEALS_KEY="tousitsu_meals_v1", SET_KEY="tousitsu_settings_v1";
+const $=id=>document.getElementById(id);
+const num=v=>{const n=parseFloat(v);return isNaN(n)?null:n;};
+const fmt=(n,d=1)=>n==null?"—":(Math.round(n*10**d)/10**d).toString();
+
+/*
+ * 集計の採用基準: 食前後の血糖差が ±BG_TOL mg/dL 以内の食事のみを
+ * 糖質/インスリン比の集計に用いる（公知のカーボ比検証手順に基づく固定値）。
+ * 出典: README「集計方法と出典」参照（Walsh & Roberts "Using Insulin", ISBN 978-1-884804-85-4）
+ */
+const BG_TOL=30;
+
+let meals=load(MEALS_KEY,[]);
+let settings=load(SET_KEY,{basalDaily:null,basalOverrides:{},tddLog:{},regimens:[],consented:false});
+if(!settings.basalOverrides)settings.basalOverrides={};
+if(!settings.tddLog)settings.tddLog={};
+if(!settings.regimens)settings.regimens=[];
+// 旧バージョンの設定項目（ISF・既知ICR・許容変動幅・目安計算表示）は廃止
+["isf","icr","tol","showDoseCalc"].forEach(k=>{if(k in settings)delete settings[k];});
+
+const REGIMEN_LABEL={pump:"ポンプ", mdi:"MDI（超速効+持効型）", mix:"Mix（混合型）"};
+function sortedRegimens(){return [...(settings.regimens||[])].sort((a,b)=>a.from.localeCompare(b.from));}
+function regimenForDate(date){const rs=sortedRegimens();let cur=null;for(const r of rs){if(r.from<=date)cur=r;else break;}return cur;}
+function currentRegimen(){const rs=sortedRegimens();return rs.length?rs[rs.length-1]:null;}
+let curMealType="朝";
+
+function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v??def;}catch(e){return def;}}
+function save(){localStorage.setItem(MEALS_KEY,JSON.stringify(meals));localStorage.setItem(SET_KEY,JSON.stringify(settings));}
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1800);}
+
+/* ---------- navigation ---------- */
+document.querySelectorAll("nav button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    $("view-"+b.dataset.view).classList.add("active");
+    if(b.dataset.view==="log")renderLog();
+    if(b.dataset.view==="icr")renderAgg();
+    if(b.dataset.view==="charts")renderCharts();
+    window.scrollTo(0,0);
+  });
+});
+
+/* ---------- meal type segmented ---------- */
+$("mealtype-seg").querySelectorAll("button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    $("mealtype-seg").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); curMealType=b.dataset.mt;
+  });
+});
+
+/* ---------- live net carbs ---------- */
+function recalcNet(){
+  const c=num($("f-carbs").value), f=num($("f-fiber").value);
+  let net = c==null ? 0 : Math.max(0, c-(f||0));
+  $("net-val").textContent=fmt(net,1);
+  return net;
+}
+["f-carbs","f-fiber"].forEach(id=>$(id).addEventListener("input",recalcNet));
+
+/* ---------- per-meal carb/insulin ratio ----------
+ * 公知のカーボカウント法の基本式（糖質 g ÷ インスリン単位）を
+ * 各記録に機械的に適用する。中央値集計への採用は、食前後の血糖差が
+ * ±BG_TOL 以内に収まった食事のみ（公知の検証手順）。
+ * 本アプリはこの値を用いた投与量計算・設定値の推奨は行わない。
+ * returns {ratio, used:bool, reason}
+ */
+function mealRatio(m){
+  const net=m.netCarbs, u=m.units;
+  if(!(net>0)||!(u>0)) return {ratio:null,used:false,reason:"糖質/単位なし"};
+  const reg=regimenForDate(m.datetime.slice(0,10));
+  if(reg && reg.type==="mix") return {ratio:net/u, used:false, reason:"Mix期（集計対象外）"};
+  const haveBG = m.preBG!=null && m.postBG!=null;
+  if(!haveBG) return {ratio:net/u, used:false, reason:"血糖記録なし（参考表示）"};
+  if(Math.abs(m.postBG-m.preBG)<=BG_TOL) return {ratio:net/u, used:true, reason:"血糖ほぼ横ばい（±"+BG_TOL+"以内）"};
+  return {ratio:net/u, used:false, reason:"血糖変動が大きく集計対象外"};
+}
+const median=arr=>{if(!arr.length)return null;const s=[...arr].sort((a,b)=>a-b);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+
+/* ---------- save meal ---------- */
+$("save-btn").addEventListener("click",()=>{
+  const carbs=num($("f-carbs").value);
+  if(carbs==null){toast("炭水化物を入力してください");return;}
+  const fiber=num($("f-fiber").value)||0;
+  const net=Math.max(0,carbs-fiber);
+  const m={
+    id:$("edit-id").value||("m"+meals.length+"_"+meals.reduce((a,x)=>Math.max(a,+x.id.split("_")[1]||0),0)+1),
+    datetime:$("f-datetime").value||new Date().toISOString().slice(0,16),
+    mealType:curMealType,
+    carbs, fiber, netCarbs:net,
+    units:num($("f-units").value),
+    preBG:num($("f-pre").value),
+    postBG:num($("f-post").value),
+    note:$("f-note").value.trim()
+  };
+  const eid=$("edit-id").value;
+  if(eid){const i=meals.findIndex(x=>x.id===eid); if(i>=0)meals[i]=m;}
+  else meals.push(m);
+  // 基礎の日次上書き（入力があった日だけ保存／空欄なら上書き解除）
+  const bval=num($("f-basal").value), dkey=m.datetime.slice(0,10);
+  if(bval!=null) settings.basalOverrides[dkey]=bval;
+  else if(settings.basalOverrides[dkey]!=null) delete settings.basalOverrides[dkey];
+  save();
+  resetForm();
+  toast(eid?"更新しました":"記録しました ✓");
+});
+
+function resetForm(){
+  $("edit-id").value="";
+  ["f-carbs","f-fiber","f-units","f-pre","f-post","f-note","f-basal"].forEach(id=>$(id).value="");
+  $("save-btn").textContent="記録する";
+  setNow();
+  recalcNet();
+}
+function setNow(){
+  const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  $("f-datetime").value=d.toISOString().slice(0,16);
+}
+
+/* ---------- log list ---------- */
+function renderLog(){
+  const list=$("log-list"); $("log-count").textContent="("+meals.length+")";
+  if(!meals.length){list.innerHTML='<div class="empty">まだ記録がありません。<br>「記録」タブから入力してください。</div>';return;}
+  const sorted=[...meals].sort((a,b)=>b.datetime.localeCompare(a.datetime));
+  list.innerHTML=sorted.map(m=>{
+    const r=mealRatio(m);
+    const dt=m.datetime.replace("T"," ").slice(5);
+    const pill=r.used?'<span class="pill ok">集計対象</span>':'<span class="pill skip">対象外</span>';
+    return `<div class="meal">
+      <div class="top"><span class="tag">${m.mealType}</span><span class="when">${dt}</span></div>
+      <div class="grid">
+        <div><span>糖質</span><b>${fmt(m.netCarbs)}g</b></div>
+        <div><span>単位</span><b>${m.units!=null?fmt(m.units)+"U":"—"}</b></div>
+        <div><span>食前→食後</span><b>${m.preBG!=null?m.preBG:"—"}→${m.postBG!=null?m.postBG:"—"}</b></div>
+      </div>
+      <div class="icr">糖質/単位: <b>${r.ratio!=null?fmt(r.ratio,1):"—"}</b> g/単位 ${pill}<span style="color:var(--muted)"> ${r.reason}</span></div>
+      ${m.note?`<div style="font-size:12px;color:var(--muted);margin-top:6px">📝 ${escapeHtml(m.note)}</div>`:""}
+      <div class="acts">
+        <button class="btn sec sm" data-edit="${m.id}">編集</button>
+        <button class="btn danger sm" data-del="${m.id}">削除</button>
+      </div>
+    </div>`;
+  }).join("");
+  list.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>editMeal(b.dataset.edit)));
+  list.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>delMeal(b.dataset.del)));
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+function editMeal(id){
+  const m=meals.find(x=>x.id===id); if(!m)return;
+  $("edit-id").value=m.id;
+  $("f-datetime").value=m.datetime;
+  $("f-carbs").value=m.carbs??""; $("f-fiber").value=m.fiber??"";
+  $("f-units").value=m.units??""; $("f-pre").value=m.preBG??""; $("f-post").value=m.postBG??"";
+  $("f-basal").value=(settings.basalOverrides[m.datetime.slice(0,10)])??"";
+  $("f-note").value=m.note||"";
+  curMealType=m.mealType;
+  $("mealtype-seg").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x.dataset.mt===m.mealType));
+  $("save-btn").textContent="更新する";
+  recalcNet();
+  document.querySelector('nav button[data-view="entry"]').click();
+}
+function delMeal(id){
+  if(!confirm("この記録を削除しますか？"))return;
+  meals=meals.filter(x=>x.id!==id); save(); renderLog(); toast("削除しました");
+}
+
+/* ---------- TDD (1日インスリン量・単純合計) ---------- */
+function resolveBasal(date){
+  const ov=settings.basalOverrides||{};
+  if(ov[date]!=null) return ov[date];
+  return settings.basalDaily;
+}
+function tddStats(days){
+  const byDate={};
+  meals.forEach(m=>{
+    const d=m.datetime.slice(0,10);
+    if(!byDate[d]) byDate[d]={bolus:0};
+    if(m.units>0) byDate[d].bolus+=m.units;
+  });
+  // 実測TDDの日付も対象に含める
+  const log=settings.tddLog||{};
+  const allDates=new Set([...Object.keys(byDate),...Object.keys(log)]);
+  const cur=currentRegimen();
+  let dates=[...allDates].sort().reverse();
+  if(cur) dates=dates.filter(d=>d>=cur.from); // 現在の方式の期間だけで平均（混在を防ぐ）
+  dates=dates.slice(0,days);
+  const rows=dates.map(d=>{
+    const basal=resolveBasal(d), bolus=byDate[d]?byDate[d].bolus:0;
+    const actual=log[d];
+    const computed=(basal!=null)?basal+bolus:null;
+    const tdd=(actual!=null)?actual:computed;
+    return {date:d, basal, bolus, actual, computed, tdd,
+            source:(actual!=null)?"実測":"推定",
+            override:(settings.basalOverrides||{})[d]!=null};
+  });
+  const valid=rows.filter(r=>r.tdd!=null);
+  const avgTDD=valid.length?valid.reduce((a,r)=>a+r.tdd,0)/valid.length:null;
+  return {rows, avgTDD, count:valid.length, regimen:cur};
+}
+function renderTDD(){
+  const body=$("tdd-body");
+  const {rows, avgTDD, count, regimen}=tddStats(14);
+  const regBanner = regimen
+    ? `<div class="hint" style="margin-bottom:8px">現在の方式: <b style="color:var(--teal)">${REGIMEN_LABEL[regimen.type]}</b>（${regimen.from} 〜 の期間で集計）</div>`
+    : "";
+  if(avgTDD==null){
+    body.innerHTML=regBanner+'<div class="empty">設定で「基礎インスリン 1日量」を入れ、食事にインスリン単位を記録すると、TDDの集計が表示されます。</div>';
+    return;
+  }
+  const list=rows.slice(0,10).map(r=>{
+    const dt=r.date.slice(5);
+    const srcPill=r.source==="実測"
+      ? '<span class="pill ok" style="margin-left:4px">実測</span>'
+      : '<span class="pill skip" style="margin-left:4px">推定</span>';
+    const detail=r.source==="実測"
+      ? "ポンプ実測"
+      : `基礎${fmt(r.basal,1)}+ボ${fmt(r.bolus,1)}`;
+    return `<div class="mealstat" data-tddedit="${r.date}" data-tddval="${r.actual??''}" style="cursor:pointer">
+      <span class="l">${dt}${srcPill}</span>
+      <span class="r" style="font-size:14px">${r.tdd!=null?fmt(r.tdd,1):"—"}<small> U（${detail}）</small></span></div>`;
+  }).join("");
+  body.innerHTML=regBanner+`<div class="stat">
+      <div class="v">${fmt(avgTDD,1)}</div>
+      <div class="u">平均TDD（直近${count}日, U/日）</div>
+      <div class="n">基礎とボーラスの単純合計（実測値があれば優先）です。受診時の資料としてお使いください。</div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:14px 0 4px;font-weight:600">日別TDD（直近10日・タップで修正）</div>
+    ${list}`;
+  body.querySelectorAll("[data-tddedit]").forEach(el=>el.addEventListener("click",()=>{
+    $("t-date").value=el.dataset.tddedit;
+    $("t-units").value=el.dataset.tddval||"";
+    $("t-units").focus();
+  }));
+}
+/* TDD実測値の保存（日付単位）。前日を初期値に。 */
+function setTddDefaultDate(){
+  const d=new Date(); d.setDate(d.getDate()-1);
+  d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  $("t-date").value=d.toISOString().slice(0,10);
+}
+$("t-save").addEventListener("click",()=>{
+  const dt=$("t-date").value, u=num($("t-units").value);
+  if(!dt){toast("日付を選んでください");return;}
+  if(u==null){ // 空欄保存 = その日の実測を削除
+    if(settings.tddLog[dt]!=null){delete settings.tddLog[dt]; save(); renderTDD(); toast("実測値を削除しました");}
+    return;
+  }
+  settings.tddLog[dt]=u; save(); renderTDD();
+  $("t-units").value=""; toast("総量を記録しました ✓");
+});
+
+/* ---------- 集計（糖質/インスリン比） ---------- */
+/* 集計期間（画面の中央値・時間帯別・主治医用レポートで共有） */
+const inRange=(dt,from,to)=>{const d=dt.slice(0,10);return (!from||d>=from)&&(!to||d<=to);};
+function aggPeriod(){
+  const el=$("agg-period"); const sel=el?el.value:"30";
+  const today=new Date(); today.setMinutes(today.getMinutes()-today.getTimezoneOffset());
+  const to=today.toISOString().slice(0,10);
+  if(sel==="custom"){
+    const f=($("agg-from")&&$("agg-from").value)||null;
+    const t=($("agg-to")&&$("agg-to").value)||to;
+    return {from:f, to:t, label:(f||"記録開始")+" 〜 "+t+"（カスタム）"};
+  }
+  const days=+sel;
+  const d=new Date(today); d.setDate(d.getDate()-(days-1));
+  const from=d.toISOString().slice(0,10);
+  return {from, to, label:"直近"+days+"日（"+from+" 〜 "+to+"）"};
+}
+function tddAvgInRange(from,to){
+  const rows=tddStats(3650).rows.filter(r=>inRange(r.date,from,to)&&r.tdd!=null);
+  return {avg:rows.length?rows.reduce((a,r)=>a+r.tdd,0)/rows.length:null, count:rows.length};
+}
+function aggData(list){
+  const src=list||meals;
+  const results=src.map(m=>({m,r:mealRatio(m)}));
+  const used=results.filter(x=>x.r.used);
+  const overall=median(used.map(x=>x.r.ratio));
+  const order=["朝","昼","夕","間食"];
+  const byMeal=order.map(mt=>{
+    const u=used.filter(x=>x.m.mealType===mt).map(x=>x.r.ratio);
+    return {mt, md:median(u), n:u.length};
+  });
+  return {results, used, overall, byMeal};
+}
+function renderAgg(){
+  renderTDD();
+  const {from,to,label}=aggPeriod();
+  const pMeals=meals.filter(m=>inRange(m.datetime,from,to));
+  const {used, overall, byMeal}=aggData(pMeals);
+  $("icr-overall").innerHTML=`<div class="stat">
+    <div class="v">${overall!=null?fmt(overall,1):"—"}</div>
+    <div class="u">g / 1単位（集計対象の中央値）</div>
+    <div class="n">集計期間: ${label}<br>集計対象 ${used.length} 件 / 期間内 ${pMeals.length} 件（全 ${meals.length} 件）　採用基準: 食前後の血糖差 ±${BG_TOL} mg/dL 以内</div>
+  </div>`;
+  const rows=byMeal.map(b=>
+    `<div class="mealstat"><span class="l">${b.mt}</span><span class="r">${b.md!=null?fmt(b.md,1):"—"} <small>${b.md!=null?"g/単位 ("+b.n+"件)":"データなし"}</small></span></div>`
+  ).join("");
+  $("icr-bymeal").innerHTML=`<div style="font-size:12px;color:var(--muted);margin:14px 0 4px;font-weight:600">時間帯別（中央値）</div>${rows}`;
+  if(!used.length){
+    $("icr-bymeal").innerHTML+=`<div class="empty">この期間に集計対象の記録がありません。<br>期間を広げるか、糖質・インスリン単位・食前/食後血糖をそろえて記録してください。</div>`;
+  }
+}
+
+/* ---------- 主治医用レポート（印刷） ---------- */
+function buildReport(){
+  const {from,to,label}=aggPeriod();
+  const pMeals=meals.filter(m=>inRange(m.datetime,from,to));
+  const sorted=[...pMeals].sort((a,b)=>b.datetime.localeCompare(a.datetime));
+  const {used, overall, byMeal}=aggData(pMeals);
+  const {avg:avgTDD, count}=tddAvgInRange(from,to);
+  const rows=sorted.map(m=>{
+    const r=mealRatio(m);
+    return `<tr>
+      <td>${m.datetime.replace("T"," ")}</td><td>${m.mealType}</td>
+      <td>${fmt(m.netCarbs)}</td><td>${m.units!=null?fmt(m.units):"—"}</td>
+      <td>${m.preBG??"—"}</td><td>${m.postBG??"—"}</td>
+      <td>${r.ratio!=null?fmt(r.ratio,1):"—"}</td><td>${r.used?"○":"—"}</td>
+    </tr>`;
+  }).join("");
+  const bm=byMeal.map(b=>`${b.mt}: ${b.md!=null?fmt(b.md,1)+" g/単位 ("+b.n+"件)":"—"}`).join("　");
+  $("report").innerHTML=`
+    <h1>血糖・食事・インスリン記録（主治医用レポート）</h1>
+    <div class="meta">出力日: ${new Date().toLocaleString("ja-JP")}　／　集計期間: ${label}　／　該当 ${sorted.length} 件の記録</div>
+    <table>
+      <tr><th>日時</th><th>区分</th><th>糖質(g)</th><th>単位(U)</th><th>食前</th><th>食後</th><th>糖質/単位</th><th>集計対象</th></tr>
+      ${rows}
+    </table>
+    <div class="meta">
+      集計（中央値・対象${used.length}件）: 全体 ${overall!=null?fmt(overall,1)+" g/単位":"—"}　／　${bm}<br>
+      平均TDD: ${avgTDD!=null?fmt(avgTDD,1)+" U/日（期間内"+count+"日）":"—"}
+    </div>
+    <div class="note">
+      本レポートは患者の自己記録を整理したものです。「糖質/単位」は公知のカーボカウント法の基本式（糖質g÷インスリン単位）の機械的計算、
+      集計対象は食前後の血糖差が±${BG_TOL} mg/dL以内に収まった食事です。
+      本資料は治療パラメータや投与量を決定するものではありません。判断は医師にご確認ください。
+    </div>`;
+  return sorted.length;
+}
+$("print-report").addEventListener("click",()=>{
+  if(!meals.length){toast("印刷できる記録がありません");return;}
+  if(!buildReport()){toast("選んだ期間に記録がありません");return;}
+  document.body.classList.add("printing");
+  window.print();
+});
+window.addEventListener("afterprint",()=>document.body.classList.remove("printing"));
+/* 集計期間セレクタ → 画面の集計とレポートに連動 */
+$("agg-period").addEventListener("change",()=>{
+  const cust=$("agg-period").value==="custom";
+  $("agg-custom").style.display=cust?"flex":"none";
+  if(cust && !$("agg-to").value){
+    const t=new Date(); t.setMinutes(t.getMinutes()-t.getTimezoneOffset());
+    $("agg-to").value=t.toISOString().slice(0,10);
+  }
+  renderAgg();
+});
+$("agg-from").addEventListener("change",renderAgg);
+$("agg-to").addEventListener("change",renderAgg);
+
+/* ---------- settings ---------- */
+function fillSettings(){
+  $("s-basal").value=settings.basalDaily??"";
+}
+$("save-settings").addEventListener("click",()=>{
+  settings.basalDaily=num($("s-basal").value);
+  save(); toast("設定を保存しました ✓");
+});
+
+/* ---------- インスリン方式（期間） ---------- */
+function setRegimenDefaultDate(){
+  const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  $("r-date").value=d.toISOString().slice(0,10);
+}
+function renderRegimens(){
+  const el=$("regimen-list");
+  const rs=sortedRegimens().reverse();
+  if(!rs.length){el.innerHTML='<div class="hint">未登録（全期間を集計対象として扱います）</div>';return;}
+  el.innerHTML=rs.map(r=>`<div class="mealstat">
+    <span class="l">${r.from} 〜</span>
+    <span class="r" style="font-size:14px">${REGIMEN_LABEL[r.type]}
+      <button class="btn danger sm" data-regdel="${r.from}" style="width:auto;display:inline-block;padding:4px 10px;margin-left:8px">削除</button></span></div>`).join("");
+  el.querySelectorAll("[data-regdel]").forEach(b=>b.addEventListener("click",()=>{
+    settings.regimens=(settings.regimens||[]).filter(x=>x.from!==b.dataset.regdel);
+    save(); renderRegimens(); toast("削除しました");
+  }));
+}
+$("r-add").addEventListener("click",()=>{
+  const d=$("r-date").value, t=$("r-type").value;
+  if(!d){toast("日付を選んでください");return;}
+  settings.regimens=(settings.regimens||[]).filter(x=>x.from!==d); // 同日付は置換
+  settings.regimens.push({from:d,type:t});
+  save(); renderRegimens(); toast("方式を登録しました ✓");
+});
+
+/* ---------- export / import / clear ---------- */
+$("export-btn").addEventListener("click",()=>{
+  const data=JSON.stringify({meals,settings,exportedAt:new Date().toISOString()},null,2);
+  const blob=new Blob([data],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="carb-icr-backup-"+new Date().toISOString().slice(0,10)+".json";
+  a.click(); URL.revokeObjectURL(a.href);
+  toast("書き出しました");
+});
+$("import-file").addEventListener("change",e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const d=JSON.parse(rd.result);
+      if(Array.isArray(d.meals)){meals=d.meals; if(d.settings)settings=Object.assign(settings,d.settings);
+        if(!settings.basalOverrides)settings.basalOverrides={}; if(!settings.tddLog)settings.tddLog={}; if(!settings.regimens)settings.regimens=[];
+        ["isf","icr","tol","showDoseCalc"].forEach(k=>{if(k in settings)delete settings[k];});
+        save(); fillSettings(); renderRegimens(); toast("読み込みました ("+meals.length+"件)");}
+      else toast("形式が違います");
+    }catch(err){toast("読み込めませんでした");}
+    e.target.value="";
+  };
+  rd.readAsText(file);
+});
+$("clear-btn").addEventListener("click",()=>{
+  if(!confirm("全ての記録と設定を削除します。よろしいですか？"))return;
+  meals=[]; settings={basalDaily:null,basalOverrides:{},tddLog:{},regimens:[],consented:true};
+  save(); fillSettings(); renderRegimens(); recalcNet(); toast("削除しました");
+});
+
+/* ---------- init ---------- */
+setNow(); setTddDefaultDate(); setRegimenDefaultDate(); fillSettings(); renderRegimens(); recalcNet(); checkConsent();
+
+/* ---------- グラフ（自前SVG） ---------- */
+const MT_COLOR={"朝":"#0f766e","昼":"#d97706","夕":"#7c3aed","間食":"#0284c7"};
+const W=340, H=210, PL=34, PR=12, PT=12, PB=24;
+const PX0=PL, PX1=W-PR, PY0=H-PB, PY1=PT; // plot box
+function esc(n){return Math.round(n*100)/100;}
+function emptyChart(msg){return `<div class="empty" style="padding:24px 10px">${msg}</div>`;}
+function svgOpen(){return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" font-family="sans-serif">`;}
+function axes(xlabel,ylabel,xticks,yticks){
+  let s=`<line x1="${PX0}" y1="${PY0}" x2="${PX1}" y2="${PY0}" stroke="#cbd5e1"/>`;
+  s+=`<line x1="${PX0}" y1="${PY1}" x2="${PX0}" y2="${PY0}" stroke="#cbd5e1"/>`;
+  xticks.forEach(t=>{s+=`<line x1="${t.x}" y1="${PY0}" x2="${t.x}" y2="${PY0+3}" stroke="#cbd5e1"/><text x="${t.x}" y="${PY0+12}" font-size="8" fill="#6b7785" text-anchor="middle">${t.l}</text>`;});
+  yticks.forEach(t=>{s+=`<line x1="${PX0-3}" y1="${t.y}" x2="${PX1}" y2="${t.y}" stroke="#eef2f5"/><text x="${PX0-5}" y="${t.y+3}" font-size="8" fill="#6b7785" text-anchor="end">${t.l}</text>`;});
+  if(xlabel)s+=`<text x="${(PX0+PX1)/2}" y="${H-2}" font-size="8" fill="#94a3b8" text-anchor="middle">${xlabel}</text>`;
+  if(ylabel)s+=`<text x="9" y="${(PY0+PY1)/2}" font-size="8" fill="#94a3b8" text-anchor="middle" transform="rotate(-90 9 ${(PY0+PY1)/2})">${ylabel}</text>`;
+  return s;
+}
+function lin(dmin,dmax,rmin,rmax){const d=(dmax-dmin)||1;return v=>rmin+(v-dmin)/d*(rmax-rmin);}
+function legendMT(){return Object.keys(MT_COLOR).map(k=>`<span style="font-size:11px;margin-right:10px;color:var(--muted)"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${MT_COLOR[k]};vertical-align:middle"></span> ${k}</span>`).join("");}
+function niceTicks(min,max,n){const out=[];const step=(max-min)/n;for(let i=0;i<=n;i++)out.push(min+step*i);return out;}
+
+// ① 散布図 糖質×単位（記録の表示のみ・回帰直線等の指標算出は行わない）
+function chartScatter(){
+  const usable=meals.filter(m=>m.netCarbs>0 && m.units>0 && (regimenForDate(m.datetime.slice(0,10))||{type:""}).type!=="mix")
+    .map(m=>({x:m.netCarbs,y:m.units,mt:m.mealType}));
+  if(usable.length<2)return emptyChart("糖質と単位がそろった記録が2件以上必要です。");
+  const xmax=Math.max(...usable.map(p=>p.x))*1.05, ymax=Math.max(...usable.map(p=>p.y))*1.1;
+  const mx=lin(0,xmax,PX0,PX1), my=lin(0,ymax,PY0,PY1);
+  let s=svgOpen();
+  const xt=niceTicks(0,xmax,4).map(v=>({x:mx(v),l:Math.round(v)}));
+  const yt=niceTicks(0,ymax,4).map(v=>({y:my(v),l:esc(v)}));
+  s+=axes("糖質 (g)","単位",xt,yt);
+  usable.forEach(p=>{s+=`<circle cx="${mx(p.x)}" cy="${my(p.y)}" r="3" fill="${MT_COLOR[p.mt]||"#888"}" fill-opacity="0.8"/>`;});
+  s+="</svg>";
+  return s+`<div style="margin-top:6px">${legendMT()}</div>`;
+}
+
+// ② 糖質/インスリン比の推移
+function chartRatioTrend(){
+  const pts=meals.map(m=>({m,r:mealRatio(m)})).filter(o=>o.r.ratio!=null && o.r.reason!=="Mix期（集計対象外）")
+    .map(o=>({t:new Date(o.m.datetime).getTime(),y:o.r.ratio,mt:o.m.mealType,used:o.r.used}))
+    .sort((a,b)=>a.t-b.t);
+  if(pts.length<2)return emptyChart("糖質/インスリン比を表示できる記録が2件以上必要です。");
+  const tmin=Math.min(...pts.map(p=>p.t)), tmax=Math.max(...pts.map(p=>p.t));
+  const ymax=Math.max(...pts.map(p=>p.y))*1.1;
+  const mx=lin(tmin,tmax,PX0,PX1), my=lin(0,ymax,PY0,PY1);
+  let s=svgOpen();
+  const xt=niceTicks(tmin,tmax,3).map(v=>({x:mx(v),l:new Date(v).toISOString().slice(5,10)}));
+  const yt=niceTicks(0,ymax,4).map(v=>({y:my(v),l:esc(v)}));
+  s+=axes("","g/単位",xt,yt);
+  // median line（一般的な統計処理）
+  const med=[...pts.map(p=>p.y)].sort((a,b)=>a-b);const mv=med[Math.floor(med.length/2)];
+  s+=`<line x1="${PX0}" y1="${my(mv)}" x2="${PX1}" y2="${my(mv)}" stroke="#16a34a" stroke-width="1" stroke-dasharray="3 3"/>`;
+  pts.forEach(p=>{s+=`<circle cx="${mx(p.t)}" cy="${my(p.y)}" r="${p.used?3:2.2}" fill="${MT_COLOR[p.mt]||"#888"}" fill-opacity="${p.used?0.9:0.4}"/>`;});
+  s+="</svg>";
+  return s+`<div style="margin-top:6px">${legendMT()}<span style="font-size:11px;color:var(--good)">― 中央値 ${esc(mv)}</span></div>`;
+}
+
+// ③ TDD推移（全期間・方式で色分け）
+function allDailyTDD(days){
+  const byDate={}; meals.forEach(m=>{const d=m.datetime.slice(0,10);if(!byDate[d])byDate[d]={bolus:0};if(m.units>0)byDate[d].bolus+=m.units;});
+  const log=settings.tddLog||{}; const all=new Set([...Object.keys(byDate),...Object.keys(log)]);
+  return [...all].sort().slice(-days).map(d=>{
+    const basal=resolveBasal(d), bolus=byDate[d]?byDate[d].bolus:0;
+    const actual=log[d]; const tdd=(actual!=null)?actual:((basal!=null)?basal+bolus:null);
+    return {date:d,tdd,type:(regimenForDate(d)||{}).type||null};
+  }).filter(r=>r.tdd!=null);
+}
+function chartTDD(){
+  const rows=allDailyTDD(30);
+  if(!rows.length)return emptyChart("TDDのデータがありません。実測値の入力か、基礎＋単位の記録が必要です。");
+  const ymax=Math.max(...rows.map(r=>r.tdd))*1.15;
+  const my=lin(0,ymax,PY0,PY1);
+  const n=rows.length, bw=(PX1-PX0)/n*0.7, gap=(PX1-PX0)/n;
+  let s=svgOpen();
+  const yt=niceTicks(0,ymax,4).map(v=>({y:my(v),l:Math.round(v)}));
+  const xt=rows.map((r,i)=> (i%Math.ceil(n/4)===0)?{x:PX0+gap*i+gap/2,l:r.date.slice(5)}:null).filter(Boolean);
+  s+=axes("","TDD (U)",xt,yt);
+  const rc={pump:"#0f766e",mdi:"#0284c7",mix:"#d97706",null:"#94a3b8"};
+  rows.forEach((r,i)=>{const x=PX0+gap*i+(gap-bw)/2;s+=`<rect x="${x}" y="${my(r.tdd)}" width="${bw}" height="${PY0-my(r.tdd)}" fill="${rc[r.type]||rc.null}" rx="1"/>`;});
+  s+="</svg>";
+  const leg=`<span style="font-size:11px;margin-right:10px;color:var(--muted)"><span style="display:inline-block;width:9px;height:9px;background:#0f766e"></span> ポンプ</span><span style="font-size:11px;margin-right:10px;color:var(--muted)"><span style="display:inline-block;width:9px;height:9px;background:#0284c7"></span> MDI</span><span style="font-size:11px;margin-right:10px;color:var(--muted)"><span style="display:inline-block;width:9px;height:9px;background:#d97706"></span> Mix</span>`;
+  return s+`<div style="margin-top:6px">${leg}</div>`;
+}
+
+// ④ 食前→食後
+function chartBG(){
+  const pts=meals.filter(m=>m.preBG!=null && m.postBG!=null).sort((a,b)=>a.datetime.localeCompare(b.datetime)).slice(-20);
+  if(!pts.length)return emptyChart("食前・食後血糖がそろった記録がありません。");
+  const vals=pts.flatMap(m=>[m.preBG,m.postBG]); const ymax=Math.max(180,...vals)*1.05, ymin=Math.min(60,...vals)*0.95;
+  const my=lin(ymin,ymax,PY0,PY1); const gap=(PX1-PX0)/pts.length;
+  let s=svgOpen();
+  const yt=niceTicks(ymin,ymax,4).map(v=>({y:my(v),l:Math.round(v)}));
+  const xt=pts.map((m,i)=> (i%Math.ceil(pts.length/4)===0)?{x:PX0+gap*i+gap/2,l:m.datetime.slice(5,10)}:null).filter(Boolean);
+  // 目標域 70-180 帯
+  s+=`<rect x="${PX0}" y="${my(180)}" width="${PX1-PX0}" height="${my(70)-my(180)}" fill="#dcfce7" fill-opacity="0.5"/>`;
+  s+=axes("","mg/dL",xt,yt);
+  pts.forEach((m,i)=>{const x=PX0+gap*i+gap/2; const c=(m.postBG>=70&&m.postBG<=180)?"#16a34a":"#dc2626";
+    s+=`<line x1="${x}" y1="${my(m.preBG)}" x2="${x}" y2="${my(m.postBG)}" stroke="${c}" stroke-width="1.3"/>`;
+    s+=`<circle cx="${x}" cy="${my(m.preBG)}" r="2.4" fill="white" stroke="${c}" stroke-width="1.2"/>`;
+    s+=`<circle cx="${x}" cy="${my(m.postBG)}" r="2.8" fill="${c}"/>`;});
+  s+="</svg>";
+  return s;
+}
+function renderCharts(){
+  $("chart-scatter").innerHTML=chartScatter();
+  $("chart-icr").innerHTML=chartRatioTrend();
+  $("chart-tdd").innerHTML=chartTDD();
+  $("chart-bg").innerHTML=chartBG();
+}
+
+/* ---------- 初回同意（医療免責） ---------- */
+function checkConsent(){
+  if(settings.consented) return;
+  $("consent").style.display="flex";
+  $("consent-check").addEventListener("change",e=>{
+    const ok=e.target.checked;
+    $("consent-ok").disabled=!ok;
+    $("consent-ok").style.opacity=ok?"1":".5";
+  });
+  $("consent-ok").addEventListener("click",()=>{
+    if(!$("consent-check").checked) return;
+    settings.consented=true; save();
+    $("consent").style.display="none";
+  });
+}
+
+/* ---------- PWA install ---------- */
+let deferredPrompt=null;
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true;
+function showInstall(on){
+  $("install-btn").style.display = on ? "block":"none";
+  $("install-btn2").style.display = on ? "block":"none";
+  $("install-help").style.display = on ? "none":"block";
+}
+async function doInstall(){
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  const {outcome}=await deferredPrompt.userChoice;
+  if(outcome==="accepted"){deferredPrompt=null; showInstall(false);}
+}
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault(); deferredPrompt=e;
+  if(!isStandalone) showInstall(true);
+});
+window.addEventListener("appinstalled",()=>{
+  deferredPrompt=null; showInstall(false);
+  $("install-done").style.display="block"; $("install-help").style.display="none";
+  toast("インストールしました ✓");
+});
+$("install-btn").addEventListener("click",doInstall);
+$("install-btn2").addEventListener("click",doInstall);
+if(isStandalone){
+  $("install-done").style.display="block"; $("install-help").style.display="none";
+}
+
+/* service worker (offline) */
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
