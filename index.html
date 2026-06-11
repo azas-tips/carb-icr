@@ -120,16 +120,20 @@
 
   /* physician report (print) */
   #report{display:none}
+  /* 用紙の余白を0にしてブラウザ自動付加のヘッダ／フッター(URL・日時・ページ番号)を抑制。内側余白は#reportのpaddingで確保 */
+  @page{margin:0}
   @media print{
-    body.printing header, body.printing main, body.printing nav, body.printing .toast{display:none!important}
-    body.printing{padding:0;background:#fff}
-    body.printing #report{display:block;padding:10mm;font-size:11px;color:#000}
+    /* 印刷時はbody直下を全て隠しレポート本体(#report)だけを出す。クラス非依存なのでアプリのボタンでもブラウザ直接印刷(Ctrl+P/共有→プリント)でも同結果 */
+    body > *{display:none!important}
+    body{padding:0;background:#fff}
+    #report{display:block!important;padding:12mm;font-size:11px;color:#000}
     #report h1{font-size:15px;margin:0 0 2mm}
     #report .meta{font-size:10px;color:#444;margin-bottom:4mm}
     #report table{width:100%;border-collapse:collapse;margin-bottom:4mm}
     #report th,#report td{border:1px solid #999;padding:2px 4px;font-size:9.5px;text-align:center}
     #report th{background:#eee}
-    #report .note{font-size:9.5px;color:#444;border:1px solid #999;padding:2mm;line-height:1.5}
+    #report tr{break-inside:avoid}
+    #report .note{font-size:9.5px;color:#444;border:1px solid #999;padding:2mm;line-height:1.5;break-inside:avoid}
   }
 </style>
 </head>
@@ -767,10 +771,10 @@ function buildReport(){
 $("print-report").addEventListener("click",()=>{
   if(!meals.length){toast("印刷できる記録がありません");return;}
   if(!buildReport()){toast("選んだ期間に記録がありません");return;}
-  document.body.classList.add("printing");
   window.print();
 });
-window.addEventListener("afterprint",()=>document.body.classList.remove("printing"));
+// ボタンを使わずブラウザの印刷で直接刷られた場合も、印刷直前にレポートを生成し#reportだけが出るようにする
+window.addEventListener("beforeprint",()=>{ if(meals.length) buildReport(); });
 /* 集計期間セレクタ → 画面の集計・レポートとグラフに連動。ICRページ/グラフページの2つのUIで同じ期間を共有 */
 const PERIOD_UI={icr:{sel:"agg-period",from:"agg-from",to:"agg-to",box:"agg-custom"},
                  chart:{sel:"chart-period",from:"chart-from",to:"chart-to",box:"chart-custom"}};
