@@ -133,6 +133,11 @@
     #report th,#report td{border:1px solid #999;padding:2px 4px;font-size:9.5px;text-align:center}
     #report th{background:#eee}
     #report tr{break-inside:avoid}
+    #report .charts-row{display:flex;gap:6mm;align-items:flex-start;break-inside:avoid;margin:4mm 0}
+    #report .charts-row .chart{flex:1;min-width:0;margin:0}
+    #report .chart{break-inside:avoid;margin:4mm 0;max-width:150mm}
+    #report .chart-h{font-size:9px;font-weight:700;color:#000;margin:0 0 1mm}
+    #report .chart svg{width:100%;height:auto}
     #report .note{font-size:9.5px;color:#444;border:1px solid #999;padding:2mm;line-height:1.5;break-inside:avoid}
   }
 </style>
@@ -760,6 +765,10 @@ function buildReport(){
     <div class="meta">
       集計（中央値・対象${used.length}件）: 全体 ${overall!=null?fmt(overall,1)+" g/単位":"—"}　／　${bm}<br>
       平均TDD: ${avgTDD!=null?fmt(avgTDD,1)+" U/日（期間内"+count+"日）":"—"}
+    </div>
+    <div class="charts-row">
+      <div class="chart"><div class="chart-h">食後血糖の推移（○食前 → ●食後 ／ 帯=目標域 70〜180）</div>${chartBG()}</div>
+      <div class="chart"><div class="chart-h">TDD（1日インスリン総量）の推移</div>${chartTDD()}</div>
     </div>
     <div class="note">
       本レポートは患者の自己記録を整理したものです。「糖質/単位」は公知のカーボカウント法の基本式（糖質g÷インスリン単位）の機械的計算、
