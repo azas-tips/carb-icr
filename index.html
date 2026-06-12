@@ -354,7 +354,7 @@
     <div class="card">
       <h2>④ 食前 → 食後 血糖の変化</h2>
       <div id="chart-bg"></div>
-      <div class="hint" style="margin-top:6px">○=食前, ●=食後。緑=食後が目標域(70〜180)、赤=高すぎ/低すぎ。</div>
+      <div class="hint" style="margin-top:6px">○=食前, ●=食後。緑=食後が目標域内、赤=域外。各点の縦帯がその時刻の目標域（設定で時間帯別に変更可・未設定は70〜180）。</div>
     </div>
   </section>
 
@@ -383,6 +383,23 @@
       </div>
       <div class="hint">方式を切り替えた日を登録すると、記録が期間ごとに分類されます。TDD平均は現在の方式の期間で集計し、Mix期の記録は糖質/インスリン比の集計対象外として表示します。未登録なら全期間を対象にします。</div>
       <div id="regimen-list" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2>🎯 目標血糖値範囲（時間帯別）</h2>
+      <div class="row">
+        <input type="time" id="bt-from" style="flex:1" value="00:00">
+        <span style="align-self:center;color:var(--muted)">〜</span>
+        <input type="time" id="bt-to" style="flex:1" value="06:00">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input type="number" id="bt-low" inputmode="numeric" placeholder="下限" style="flex:1">
+        <span style="align-self:center;color:var(--muted)">〜</span>
+        <input type="number" id="bt-high" inputmode="numeric" placeholder="上限" style="flex:1">
+        <button class="btn sm" id="bt-add" style="width:auto;flex:0 0 auto;padding:0 14px">追加</button>
+      </div>
+      <div class="hint">ポンプのように時間帯ごとの目標範囲(mg/dL)を登録できます。終了が翌0:00の場合は <code class="f">00:00</code> を指定（=24:00扱い）。<b>未登録なら 70〜180</b> を目標域とし、グラフ④の各点に目標帯を表示します。</div>
+      <div id="bgtarget-list" style="margin-top:10px"></div>
     </div>
 
     <div class="card" id="install-card">
@@ -446,10 +463,11 @@ const fmt=(n,d=1)=>n==null?"—":(Math.round(n*10**d)/10**d).toString();
 const BG_TOL=30;
 
 let meals=load(MEALS_KEY,[]);
-let settings=load(SET_KEY,{basalDaily:null,basalOverrides:{},tddLog:{},regimens:[],consented:false});
+let settings=load(SET_KEY,{basalDaily:null,basalOverrides:{},tddLog:{},regimens:[],bgTargets:[],consented:false});
 if(!settings.basalOverrides)settings.basalOverrides={};
 if(!settings.tddLog)settings.tddLog={};
 if(!settings.regimens)settings.regimens=[];
+if(!settings.bgTargets)settings.bgTargets=[];
 // 旧バージョンの設定項目（ISF・既知ICR・許容変動幅・目安計算表示）は廃止
 ["isf","icr","tol","showDoseCalc"].forEach(k=>{if(k in settings)delete settings[k];});
 
@@ -457,6 +475,15 @@ const REGIMEN_LABEL={pump:"ポンプ", mdi:"MDI（超速効+持効型）", mix:"
 function sortedRegimens(){return [...(settings.regimens||[])].sort((a,b)=>a.from.localeCompare(b.from));}
 function regimenForDate(date){const rs=sortedRegimens();let cur=null;for(const r of rs){if(r.from<=date)cur=r;else break;}return cur;}
 function currentRegimen(){const rs=sortedRegimens();return rs.length?rs[rs.length-1]:null;}
+/* 目標血糖値範囲（時間帯別／未設定は70〜180）。to="00:00"は24:00(終端)扱い */
+const DEFAULT_BG_TARGET={low:70, high:180};
+const hm2min=t=>(+t.slice(0,2))*60+(+t.slice(3,5));
+function bgTargetForTime(hhmm){
+  const list=settings.bgTargets||[]; const t=hm2min(hhmm);
+  for(const seg of list){const f=hm2min(seg.from); let to=hm2min(seg.to); if(to===0)to=1440; if(t>=f&&t<to) return {low:seg.low, high:seg.high};}
+  return DEFAULT_BG_TARGET;
+}
+function bgTargetForDatetime(dt){return bgTargetForTime(dt.slice(11,16));}
 let curMealType="朝";
 
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v??def;}catch(e){return def;}}
@@ -767,7 +794,7 @@ function buildReport(){
       平均TDD: ${avgTDD!=null?fmt(avgTDD,1)+" U/日（期間内"+count+"日）":"—"}
     </div>
     <div class="charts-row">
-      <div class="chart"><div class="chart-h">食後血糖の推移（○食前 → ●食後 ／ 帯=目標域 70〜180）</div>${chartBG()}</div>
+      <div class="chart"><div class="chart-h">食後血糖の推移（○食前 → ●食後 ／ 縦帯=時間帯別の目標域）</div>${chartBG()}</div>
       <div class="chart"><div class="chart-h">TDD（1日インスリン総量）の推移</div>${chartTDD()}</div>
     </div>
     <div class="note">
@@ -841,6 +868,32 @@ $("r-add").addEventListener("click",()=>{
   save(); renderRegimens(); toast("方式を登録しました ✓");
 });
 
+/* ---------- 目標血糖値範囲（時間帯別） ---------- */
+function renderBgTargets(){
+  const el=$("bgtarget-list");
+  const list=[...(settings.bgTargets||[])].sort((a,b)=>hm2min(a.from)-hm2min(b.from));
+  if(!list.length){el.innerHTML='<div class="hint">未登録（目標域は 70〜180 mg/dL を使用）</div>';return;}
+  el.innerHTML=list.map(seg=>`<div class="mealstat">
+    <span class="l">${seg.from} 〜 ${seg.to==="00:00"?"24:00":seg.to}</span>
+    <span class="r" style="font-size:14px">${seg.low}〜${seg.high} <small>mg/dL</small>
+      <button class="btn danger sm" data-btdel="${seg.from}|${seg.to}" style="width:auto;display:inline-block;padding:4px 10px;margin-left:8px">削除</button></span></div>`).join("");
+  el.querySelectorAll("[data-btdel]").forEach(b=>b.addEventListener("click",()=>{
+    const [f,t]=b.dataset.btdel.split("|");
+    settings.bgTargets=(settings.bgTargets||[]).filter(x=>!(x.from===f&&x.to===t));
+    save(); renderBgTargets(); renderCharts(); toast("削除しました");
+  }));
+}
+$("bt-add").addEventListener("click",()=>{
+  const f=$("bt-from").value, t=$("bt-to").value;
+  const low=num($("bt-low").value), high=num($("bt-high").value);
+  if(!f||!t){toast("時間帯を指定してください");return;}
+  if(low==null||high==null){toast("下限・上限を入力してください");return;}
+  if(low>=high){toast("下限は上限より小さくしてください");return;}
+  settings.bgTargets=(settings.bgTargets||[]).filter(x=>x.from!==f); // 同じ開始時刻は置換
+  settings.bgTargets.push({from:f,to:t,low,high});
+  save(); renderBgTargets(); renderCharts(); $("bt-low").value=""; $("bt-high").value=""; toast("目標範囲を登録しました ✓");
+});
+
 /* ---------- export / import / clear ---------- */
 $("export-btn").addEventListener("click",()=>{
   const data=JSON.stringify({meals,settings,exportedAt:new Date().toISOString()},null,2);
@@ -860,7 +913,7 @@ $("import-file").addEventListener("change",e=>{
       if(Array.isArray(d.meals)){meals=d.meals; if(d.settings)settings=Object.assign(settings,d.settings);
         if(!settings.basalOverrides)settings.basalOverrides={}; if(!settings.tddLog)settings.tddLog={}; if(!settings.regimens)settings.regimens=[];
         ["isf","icr","tol","showDoseCalc"].forEach(k=>{if(k in settings)delete settings[k];});
-        save(); fillSettings(); renderRegimens(); toast("読み込みました ("+meals.length+"件)");}
+        save(); fillSettings(); renderRegimens(); renderBgTargets(); toast("読み込みました ("+meals.length+"件)");}
       else toast("形式が違います");
     }catch(err){toast("読み込めませんでした");}
     e.target.value="";
@@ -870,11 +923,11 @@ $("import-file").addEventListener("change",e=>{
 $("clear-btn").addEventListener("click",()=>{
   if(!confirm("全ての記録と設定を削除します。よろしいですか？"))return;
   meals=[]; settings={basalDaily:null,basalOverrides:{},tddLog:{},regimens:[],consented:true};
-  save(); fillSettings(); renderRegimens(); recalcNet(); toast("削除しました");
+  save(); fillSettings(); renderRegimens(); renderBgTargets(); recalcNet(); toast("削除しました");
 });
 
 /* ---------- init ---------- */
-setNow(); setTddDefaultDate(); setRegimenDefaultDate(); fillSettings(); renderRegimens(); recalcNet(); checkConsent();
+setNow(); setTddDefaultDate(); setRegimenDefaultDate(); fillSettings(); renderRegimens(); renderBgTargets(); recalcNet(); checkConsent();
 
 /* ---------- グラフ（自前SVG） ---------- */
 const MT_COLOR={"朝":"#0f766e","昼":"#d97706","夕":"#7c3aed","間食":"#0284c7"};
@@ -967,15 +1020,19 @@ function chartBG(){
   const p=aggPeriod();
   const pts=meals.filter(m=>m.preBG!=null && m.postBG!=null && inRange(m.datetime,p.from,p.to)).sort((a,b)=>a.datetime.localeCompare(b.datetime));
   if(!pts.length)return emptyChart("選んだ期間に、食前・食後血糖がそろった記録がありません。期間を広げてみてください。");
-  const vals=pts.flatMap(m=>[m.preBG,m.postBG]); const ymax=Math.max(180,...vals)*1.05, ymin=Math.min(60,...vals)*0.95;
+  const tgts=pts.map(m=>bgTargetForDatetime(m.datetime));
+  const vals=pts.flatMap(m=>[m.preBG,m.postBG]).concat(tgts.flatMap(t=>[t.low,t.high]));
+  const ymax=Math.max(180,...vals)*1.05, ymin=Math.min(60,...vals)*0.95;
   const my=lin(ymin,ymax,PY0,PY1); const gap=(PX1-PX0)/pts.length;
   let s=svgOpen();
   const yt=niceTicks(ymin,ymax,4).map(v=>({y:my(v),l:Math.round(v)}));
   const xt=pts.map((m,i)=> (i%Math.ceil(pts.length/4)===0)?{x:PX0+gap*i+gap/2,l:m.datetime.slice(5,10)}:null).filter(Boolean);
-  // 目標域 70-180 帯
-  s+=`<rect x="${PX0}" y="${my(180)}" width="${PX1-PX0}" height="${my(70)-my(180)}" fill="#dcfce7" fill-opacity="0.5"/>`;
+  // 各点の時間帯別目標域を縦帯で表示（その食事時刻に応じた目標）
+  const bw=Math.min(gap*0.7, 9);
+  pts.forEach((m,i)=>{const x=PX0+gap*i+gap/2; const t=tgts[i];
+    s+=`<rect x="${x-bw/2}" y="${my(t.high)}" width="${bw}" height="${my(t.low)-my(t.high)}" fill="#86efac" fill-opacity="0.4"/>`;});
   s+=axes("","mg/dL",xt,yt);
-  pts.forEach((m,i)=>{const x=PX0+gap*i+gap/2; const c=(m.postBG>=70&&m.postBG<=180)?"#16a34a":"#dc2626";
+  pts.forEach((m,i)=>{const x=PX0+gap*i+gap/2; const t=tgts[i]; const c=(m.postBG>=t.low&&m.postBG<=t.high)?"#16a34a":"#dc2626";
     s+=`<line x1="${x}" y1="${my(m.preBG)}" x2="${x}" y2="${my(m.postBG)}" stroke="${c}" stroke-width="1.3"/>`;
     s+=`<circle cx="${x}" cy="${my(m.preBG)}" r="2.4" fill="white" stroke="${c}" stroke-width="1.2"/>`;
     s+=`<circle cx="${x}" cy="${my(m.postBG)}" r="2.8" fill="${c}"/>`;});
