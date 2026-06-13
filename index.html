@@ -785,18 +785,18 @@ function buildReport(){
   $("report").innerHTML=`
     <h1>血糖・食事・インスリン記録（主治医用レポート）</h1>
     <div class="meta">出力日: ${new Date().toLocaleString("ja-JP")}　／　集計期間: ${label}　／　該当 ${sorted.length} 件の記録</div>
-    <table>
-      <tr><th>日時</th><th>区分</th><th>糖質(g)</th><th>単位(U)</th><th>食前</th><th>食後</th><th>糖質/単位</th><th>集計対象</th></tr>
-      ${rows}
-    </table>
-    <div class="meta">
-      集計（中央値・対象${used.length}件）: 全体 ${overall!=null?fmt(overall,1)+" g/単位":"—"}　／　${bm}<br>
-      平均TDD: ${avgTDD!=null?fmt(avgTDD,1)+" U/日（期間内"+count+"日）":"—"}
-    </div>
     <div class="charts-row">
       <div class="chart"><div class="chart-h">食後血糖の推移（○食前 → ●食後 ／ 縦帯=時間帯別の目標域）</div>${chartBG()}</div>
       <div class="chart"><div class="chart-h">TDD（1日インスリン総量）の推移</div>${chartTDD()}</div>
     </div>
+    <div class="meta">
+      集計（中央値・対象${used.length}件）: 全体 ${overall!=null?fmt(overall,1)+" g/単位":"—"}　／　${bm}<br>
+      平均TDD: ${avgTDD!=null?fmt(avgTDD,1)+" U/日（期間内"+count+"日）":"—"}
+    </div>
+    <table>
+      <tr><th>日時</th><th>区分</th><th>糖質(g)</th><th>単位(U)</th><th>食前</th><th>食後</th><th>糖質/単位</th><th>集計対象</th></tr>
+      ${rows}
+    </table>
     <div class="note">
       本レポートは患者の自己記録を整理したものです。「糖質/単位」は公知のカーボカウント法の基本式（糖質g÷インスリン単位）の機械的計算、
       集計対象は食前後の血糖差が±${BG_TOL} mg/dL以内に収まった食事です。
