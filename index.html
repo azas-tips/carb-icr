@@ -462,14 +462,20 @@ const fmt=(n,d=1)=>n==null?"—":(Math.round(n*10**d)/10**d).toString();
  */
 const BG_TOL=30;
 
-let meals=load(MEALS_KEY,[]);
-let settings=load(SET_KEY,{basalDaily:null,basalOverrides:{},tddLog:{},regimens:[],bgTargets:[],consented:false});
-if(!settings.basalOverrides)settings.basalOverrides={};
-if(!settings.tddLog)settings.tddLog={};
-if(!settings.regimens)settings.regimens=[];
-if(!settings.bgTargets)settings.bgTargets=[];
-// 旧バージョンの設定項目（ISF・既知ICR・許容変動幅・目安計算表示）は廃止
-["isf","icr","tol","showDoseCalc"].forEach(k=>{if(k in settings)delete settings[k];});
+// データはメモリ内モデル(meals/settings)が正。永続化は IndexedDB（起動時に hydrate() でロード）。
+function defaultSettings(){return {basalDaily:null,basalOverrides:{},tddLog:{},regimens:[],bgTargets:[],consented:false};}
+function normalizeSettings(s){
+  s = (s && typeof s==="object") ? s : defaultSettings();
+  if(!s.basalOverrides)s.basalOverrides={};
+  if(!s.tddLog)s.tddLog={};
+  if(!s.regimens)s.regimens=[];
+  if(!s.bgTargets)s.bgTargets=[];
+  // 旧バージョンの設定項目（ISF・既知ICR・許容変動幅・目安計算表示）は廃止
+  ["isf","icr","tol","showDoseCalc"].forEach(k=>{if(k in s)delete s[k];});
+  return s;
+}
+let meals=[];
+let settings=defaultSettings();
 
 const REGIMEN_LABEL={pump:"ポンプ", mdi:"MDI（超速効+持効型）", mix:"Mix（混合型）"};
 function sortedRegimens(){return [...(settings.regimens||[])].sort((a,b)=>a.from.localeCompare(b.from));}
@@ -486,8 +492,49 @@ function bgTargetForTime(hhmm){
 function bgTargetForDatetime(dt){return bgTargetForTime(dt.slice(11,16));}
 let curMealType="朝";
 
-function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v??def;}catch(e){return def;}}
-function save(){localStorage.setItem(MEALS_KEY,JSON.stringify(meals));localStorage.setItem(SET_KEY,JSON.stringify(settings));}
+/* ---------- 永続化: IndexedDB（旧localStorageからは起動時に自動移行） ---------- */
+const DB_NAME="carb-icr", DB_STORE="kv";
+let _db=null;
+function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);
+  r.onupgradeneeded=()=>{const db=r.result; if(!db.objectStoreNames.contains(DB_STORE))db.createObjectStore(DB_STORE);};
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);});}
+function idbGet(key){return new Promise((res,rej)=>{const q=_db.transaction(DB_STORE,"readonly").objectStore(DB_STORE).get(key);
+  q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error);});}
+function idbPut(key,val){return new Promise((res,rej)=>{const tx=_db.transaction(DB_STORE,"readwrite"); tx.objectStore(DB_STORE).put(val,key);
+  tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error);});}
+// 旧localStorage（移行元／IDB不可時のフォールバック）
+function lsLoad(k){try{const v=JSON.parse(localStorage.getItem(k));return v??null;}catch(e){return null;}}
+function save(){
+  if(_db){ idbPut(MEALS_KEY,meals).catch(()=>{}); idbPut(SET_KEY,settings).catch(()=>{}); }
+  else { try{localStorage.setItem(MEALS_KEY,JSON.stringify(meals));localStorage.setItem(SET_KEY,JSON.stringify(settings));}catch(e){} }
+}
+// 起動時ハイドレート: IDBロード＋（IDBが空なら）旧localStorageから一度だけ自動移行
+async function hydrate(){
+  try{ _db=await idbOpen(); }catch(e){ _db=null; }
+  let m=null,s=null;
+  if(_db){
+    try{ m=await idbGet(MEALS_KEY); s=await idbGet(SET_KEY); }catch(e){}
+    if(m==null && s==null){
+      // 自動移行: 旧localStorageに記録があればIDBへ取り込む（localStorageは消さず凍結バックアップとして残す）
+      const lm=lsLoad(MEALS_KEY), ls=lsLoad(SET_KEY);
+      if(lm!=null || ls!=null){
+        m = lm!=null?lm:[]; s = ls!=null?ls:defaultSettings();
+        try{ await idbPut(MEALS_KEY,m); await idbPut(SET_KEY,s); }catch(e){}
+      }
+    }
+  } else {
+    // IDB使用不可: 旧localStorageから読む（従来動作にフォールバック）
+    m=lsLoad(MEALS_KEY); s=lsLoad(SET_KEY);
+  }
+  if(Array.isArray(m)) meals=m;
+  settings=normalizeSettings(s);
+}
+// 起動: hydrate→永続化リクエスト→既存の初期化（データ依存の描画はここで実行）
+async function boot(){
+  await hydrate();
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  setNow(); setTddDefaultDate(); setRegimenDefaultDate(); fillSettings(); renderRegimens(); renderBgTargets(); recalcNet(); checkConsent();
+}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1800);}
 
 /* ---------- navigation ---------- */
@@ -922,12 +969,12 @@ $("import-file").addEventListener("change",e=>{
 });
 $("clear-btn").addEventListener("click",()=>{
   if(!confirm("全ての記録と設定を削除します。よろしいですか？"))return;
-  meals=[]; settings={basalDaily:null,basalOverrides:{},tddLog:{},regimens:[],consented:true};
+  meals=[]; settings=defaultSettings(); settings.consented=true;
   save(); fillSettings(); renderRegimens(); renderBgTargets(); recalcNet(); toast("削除しました");
 });
 
 /* ---------- init ---------- */
-setNow(); setTddDefaultDate(); setRegimenDefaultDate(); fillSettings(); renderRegimens(); renderBgTargets(); recalcNet(); checkConsent();
+boot();  // hydrate(IDBロード＋旧localStorageからの自動移行)後にデータ依存の初期化を実行
 
 /* ---------- グラフ（自前SVG） ---------- */
 const MT_COLOR={"朝":"#0f766e","昼":"#d97706","夕":"#7c3aed","間食":"#0284c7"};
