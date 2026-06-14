@@ -1218,6 +1218,7 @@ if(isStandalone){
 /* service worker (offline) ＋ 更新検知（更新バナー） */
 if("serviceWorker" in navigator){
   let swReg=null, swRefreshing=false;
+  const hadController=!!navigator.serviceWorker.controller; // 初回インストール時は不要リロードしない
   const showUpdateBar=()=>{ const b=$("update-bar"); if(b) b.style.display="flex"; };
   navigator.serviceWorker.register("sw.js").then(reg=>{
     swReg=reg;
@@ -1232,7 +1233,7 @@ if("serviceWorker" in navigator){
     document.addEventListener("visibilitychange",()=>{ if(!document.hidden) reg.update().catch(()=>{}); });
     setInterval(()=>reg.update().catch(()=>{}), 60*60*1000);
   }).catch(()=>{});
-  navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(swRefreshing)return; swRefreshing=true; location.reload(); });
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(swRefreshing||!hadController)return; swRefreshing=true; location.reload(); });
   const ub=$("update-btn"); if(ub) ub.addEventListener("click",()=>{
     $("update-bar").style.display="none";
     if(swReg && swReg.waiting) swReg.waiting.postMessage({type:"SKIP_WAITING"}); else location.reload();

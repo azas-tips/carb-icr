@@ -1,5 +1,5 @@
 // オフライン動作用サービスワーカー
-const CACHE = "carb-icr-v20";
+const CACHE = "carb-icr-v21";
 const ASSETS = [
   "./",
   "./index.html",
