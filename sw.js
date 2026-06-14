@@ -1,5 +1,5 @@
 // オフライン動作用サービスワーカー
-const CACHE = "carb-icr-v19";
+const CACHE = "carb-icr-v20";
 const ASSETS = [
   "./",
   "./index.html",
@@ -10,7 +10,11 @@ const ASSETS = [
   "./icon-512-maskable.png"
 ];
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // skipWaitingは即時にしない。新版はwaiting状態で待機し、アプリの「更新」ボタン押下時のメッセージで有効化する
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+});
+self.addEventListener("message", e => {
+  if (e.data && e.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 self.addEventListener("activate", e => {
   e.waitUntil(
