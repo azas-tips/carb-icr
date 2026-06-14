@@ -829,6 +829,17 @@ function buildReport(){
     </tr>`;
   }).join("");
   const bm=byMeal.map(b=>`${b.mt}: ${b.md!=null?fmt(b.md,1)+" g/単位 ("+b.n+"件)":"—"}`).join("　");
+  // --- 栄養サマリー（糖質・食物繊維の記録を集計。栄養指導の相談用） ---
+  const nOrder=["朝","昼","夕","間食"];
+  const carbAll=median(pMeals.map(m=>m.netCarbs));
+  const carbByMeal=nOrder.map(mt=>{const a=pMeals.filter(m=>m.mealType===mt).map(m=>m.netCarbs);return {mt,md:median(a),n:a.length};});
+  const fiberAll=median(pMeals.map(m=>m.fiber||0));
+  const byDay={};
+  pMeals.forEach(m=>{const d=m.datetime.slice(0,10); if(!byDay[d])byDay[d]={carb:0,fiber:0}; byDay[d].carb+=m.netCarbs||0; byDay[d].fiber+=m.fiber||0;});
+  const dayArr=Object.values(byDay), nDays=dayArr.length;
+  const dailyCarbMed=median(dayArr.map(d=>d.carb)), dailyCarbAvg=nDays?dayArr.reduce((a,d)=>a+d.carb,0)/nDays:null;
+  const dailyFiberMed=median(dayArr.map(d=>d.fiber));
+  const snackTotal=pMeals.filter(m=>m.mealType==="間食").length, snackPerDay=nDays?snackTotal/nDays:null;
   $("report").innerHTML=`
     <h1>血糖・食事・インスリン記録（主治医用レポート）</h1>
     <div class="meta">出力日: ${new Date().toLocaleString("ja-JP")}　／　集計期間: ${label}　／　該当 ${sorted.length} 件の記録</div>
@@ -840,6 +851,20 @@ function buildReport(){
       集計（中央値・対象${used.length}件）: 全体 ${overall!=null?fmt(overall,1)+" g/単位":"—"}　／　${bm}<br>
       平均TDD: ${avgTDD!=null?fmt(avgTDD,1)+" U/日（期間内"+count+"日）":"—"}
     </div>
+    <div style="font-weight:700;font-size:10px;margin:3mm 0 1mm">栄養サマリー <span style="font-weight:400;color:#555">（糖質・食物繊維の記録の集計／脂質・タンパク質・総カロリーは記録対象外）</span></div>
+    <table>
+      <tr><th style="text-align:left">糖質量</th><th>全体</th><th>朝</th><th>昼</th><th>夕</th><th>間食</th></tr>
+      <tr><td style="text-align:left">中央値 (g)　<span style="color:#888;font-weight:400">（件数）</span></td><td>${carbAll!=null?fmt(carbAll,1):"—"}</td>${carbByMeal.map(b=>`<td>${b.md!=null?fmt(b.md,1):"—"}${b.n?`<span style="color:#888"> (${b.n})</span>`:""}</td>`).join("")}</tr>
+    </table>
+    <table>
+      <tr><th>1日あたり糖質総量</th><th>食物繊維 中央値</th><th>間食</th><th>記録日数</th></tr>
+      <tr>
+        <td>中央 ${dailyCarbMed!=null?fmt(dailyCarbMed,1)+" g":"—"} ／ 平均 ${dailyCarbAvg!=null?fmt(dailyCarbAvg,1)+" g":"—"}</td>
+        <td>1食 ${fiberAll!=null?fmt(fiberAll,1)+" g":"—"} ／ 1日 ${dailyFiberMed!=null?fmt(dailyFiberMed,1)+" g":"—"}</td>
+        <td>計 ${snackTotal} 回 ／ 1日 ${snackPerDay!=null?fmt(snackPerDay,1):"—"} 回</td>
+        <td>${nDays} 日</td>
+      </tr>
+    </table>
     <table>
       <tr><th>日時</th><th>区分</th><th>糖質(g)</th><th>単位(U)</th><th>食前</th><th>食後</th><th>糖質/単位</th><th>集計対象</th></tr>
       ${rows}
