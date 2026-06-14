@@ -53,7 +53,7 @@
 |---|---|---|
 | 糖質 | 炭水化物 − 食物繊維 | 公知の栄養計算（いわゆるネットカーボ） |
 | 糖質/インスリン比 | 糖質(g) ÷ インスリン(単位) | カーボカウント法における糖質/インスリン比（ICR）の基本定義。日本糖尿病学会 編・著『カーボカウントの手びき ―「糖尿病食事療法のための食品交換表」準拠―』文光堂, 2017（ISBN 978-4-8306-6064-1）／医療者向け『医療者のためのカーボカウント指導テキスト』文光堂（ISBN 978-4-8306-6063-4）。 |
-| 集計の採用基準 | 食前後の血糖差 ±30 mg/dL 以内の食事のみ | インスリン/カーボ比の検証手順（食後に血糖がほぼ食前値±30 mg/dL へ戻るかで比の妥当性を確認する）。John Walsh & Ruth Roberts, *Using Insulin: Everything You Need for Success with Insulin*, Torrey Pines Press（ISBN 978-1-884804-85-4）。 |
+| 集計の採用基準 | 食前後の血糖差 ±30 mg/dL 以内の食事のみ | カーボ比（CarbF＝insulin-to-carb ratio＝ICR）の検証手順。「正確なカーボ比なら、食後に血糖が開始時の±30 mg/dL 以内へ戻る」。John Walsh & Ruth Roberts, *Pumping Insulin: Everything for Success on a Pump and CGM*, Torrey Pines Press（ISBN 978-1-884804-88-5）第11章「Choose, Check, & Change Your Carb Factor」（Workspace 11.4）。※本書の手順は管理下の5時間チェックですが、本アプリは同じ±30 mg/dL の閾値を日常の食前/食後記録に適用する簡略運用です。 |
 | 代表値 | 中央値（全体・時間帯別） | 一般的な統計処理 |
 | TDD | 基礎 + ボーラスの単純合計（実測値優先） | 単純合計 |
 | 栄養集計 | 糖質量・食物繊維量の中央値、1日あたりの合計、間食回数 | 一般的な統計処理（記述統計）。栄養計算・食事処方は行わない |
