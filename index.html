@@ -118,27 +118,51 @@
   details p{font-size:12px;color:var(--muted);line-height:1.6}
   code.f{background:var(--soft);padding:1px 5px;border-radius:4px;font-size:11px}
 
-  /* physician report (print) */
+  /* 主治医用レポート（印刷）。クリニカル・エディトリアル: 明朝見出し＋ゴシックのデータ書体、ティール1色、KPI、罫線主体で背景塗りに非依存 */
   #report{display:none}
-  /* 用紙の余白を0にしてブラウザ自動付加のヘッダ／フッター(URL・日時・ページ番号)を抑制。内側余白は#reportのpaddingで確保 */
-  @page{margin:0}
+  /* 上下余白は@pageで全ページ共通に（2ページ目以降も見出しが上端で見切れない）。左右はスクショ用に#reportのpaddingで確保 */
+  @page{margin:12mm 0 13mm}
   @media print{
-    /* 印刷時はbody直下を全て隠しレポート本体(#report)だけを出す。クラス非依存なのでアプリのボタンでもブラウザ直接印刷(Ctrl+P/共有→プリント)でも同結果 */
     body > *{display:none!important}
     body{padding:0;background:#fff}
-    #report{display:block!important;padding:12mm;font-size:11px;color:#000}
-    #report h1{font-size:15px;margin:0 0 2mm}
-    #report .meta{font-size:10px;color:#444;margin-bottom:4mm}
-    #report table{width:100%;border-collapse:collapse;margin-bottom:4mm}
-    #report th,#report td{border:1px solid #999;padding:2px 4px;font-size:9.5px;text-align:center}
-    #report th{background:#eee}
+    #report{display:block!important;padding:0 13mm;color:#1a2422;
+      font-family:"Hiragino Kaku Gothic ProN","Yu Gothic Medium","Yu Gothic","Noto Sans CJK JP",sans-serif;
+      font-size:10px;line-height:1.55;font-variant-numeric:tabular-nums;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    #report .mincho{font-family:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif CJK JP",serif}
+    #report .rpt-head{display:flex;justify-content:space-between;align-items:flex-end;
+      border-bottom:1.6px solid #0d6e63;padding-bottom:2.4mm;margin-bottom:2.6mm}
+    #report .rpt-head .kicker{font-size:8px;letter-spacing:.34em;color:#0d6e63;font-weight:700;margin:0 0 1.4mm}
+    #report .rpt-head h1{font-size:18px;font-weight:600;margin:0;letter-spacing:.03em;color:#10302b}
+    #report .rpt-head .org{text-align:right;font-size:8.5px;color:#62736f;line-height:1.7}
+    #report .rpt-head .org b{display:block;font-size:10px;color:#1a2422;letter-spacing:.18em;font-weight:600;margin-bottom:.6mm}
+    #report .rpt-metabar{display:flex;flex-wrap:wrap;gap:0 5mm;font-size:9px;color:#62736f;margin-bottom:4.5mm}
+    #report .rpt-metabar b{color:#1a2422;font-weight:600}
+    #report .kpis{display:flex;gap:3mm;margin-bottom:6mm}
+    #report .kpi{flex:1;border:.5px solid #cbd6d3;border-top:2.4px solid #0d6e63;padding:2.4mm 3mm 2.6mm;border-radius:.8mm}
+    #report .kpi .l{font-size:7.5px;letter-spacing:.14em;color:#62736f;margin-bottom:1.4mm;font-weight:600}
+    #report .kpi .v{font-size:21px;font-weight:700;color:#0d6e63;line-height:.95;letter-spacing:-.01em}
+    #report .kpi .v small{font-size:9px;font-weight:600;color:#62736f;margin-left:.6mm;letter-spacing:0}
+    #report .kpi .s{font-size:7.5px;color:#8a9893;margin-top:1.2mm}
+    #report .sec{display:flex;align-items:baseline;gap:2.4mm;margin:0 0 2mm;break-after:avoid}
+    #report .sec .t{font-size:12px;font-weight:600;letter-spacing:.06em;color:#10302b;position:relative;padding-left:3.2mm}
+    #report .sec .t::before{content:"";position:absolute;left:0;top:.4mm;bottom:.4mm;width:2.4px;background:#0d6e63;border-radius:2px}
+    #report .sec .hint{font-size:8px;color:#9aa8a3;font-weight:400;letter-spacing:0}
+    #report .block{margin-bottom:6mm;break-inside:avoid}
+    #report table{width:100%;border-collapse:collapse;margin:0 0 2mm}
+    #report th,#report td{border:.4px solid #cbd6d3;padding:1.5mm 2mm;font-size:9px;text-align:center}
+    #report th{background:#e7f0ee;color:#0d4f47;font-weight:700;letter-spacing:.02em}
+    #report tbody tr:nth-child(even) td{background:#f6f9f8}
+    #report td.kfig{color:#0d6e63;font-weight:700}
     #report tr{break-inside:avoid}
-    #report .charts-row{display:flex;gap:6mm;align-items:flex-start;break-inside:avoid;margin:4mm 0}
+    #report .charts-row{display:flex;gap:5mm;align-items:flex-start;break-inside:avoid}
     #report .charts-row .chart{flex:1;min-width:0;margin:0}
-    #report .chart{break-inside:avoid;margin:4mm 0;max-width:150mm}
-    #report .chart-h{font-size:9px;font-weight:700;color:#000;margin:0 0 1mm}
-    #report .chart svg{width:100%;height:auto}
-    #report .note{font-size:9.5px;color:#444;border:1px solid #999;padding:2mm;line-height:1.5;break-inside:avoid}
+    #report .chart{break-inside:avoid;margin:0 0 2mm}
+    #report .chart-h{font-size:8px;font-weight:600;color:#62736f;letter-spacing:.02em;margin:0 0 1mm}
+    #report .chart svg{width:100%;height:auto;border:.4px solid #eaf0ee;border-radius:1mm}
+    #report .note{font-size:8.5px;color:#5b6b67;border:.5px solid #cbd6d3;border-left:2.4px solid #0d6e63;
+      background:#f6f9f8;padding:2.6mm 3.2mm;line-height:1.65;break-inside:avoid;margin-top:2mm}
+    #report .note b{color:#0d6e63}
   }
 </style>
 </head>
@@ -825,10 +849,9 @@ function buildReport(){
       <td>${m.datetime.replace("T"," ")}</td><td>${m.mealType}</td>
       <td>${fmt(m.netCarbs)}</td><td>${m.units!=null?fmt(m.units):"—"}</td>
       <td>${m.preBG??"—"}</td><td>${m.postBG??"—"}</td>
-      <td>${r.ratio!=null?fmt(r.ratio,1):"—"}</td><td>${r.used?"○":"—"}</td>
+      <td class="kfig">${r.ratio!=null?fmt(r.ratio,1):"—"}</td><td>${r.used?"○":"—"}</td>
     </tr>`;
   }).join("");
-  const bm=byMeal.map(b=>`${b.mt}: ${b.md!=null?fmt(b.md,1)+" g/単位 ("+b.n+"件)":"—"}`).join("　");
   // --- 栄養サマリー（糖質・食物繊維の記録を集計。栄養指導の相談用） ---
   const nOrder=["朝","昼","夕","間食"];
   const carbAll=median(pMeals.map(m=>m.netCarbs));
@@ -840,39 +863,64 @@ function buildReport(){
   const dailyCarbMed=median(dayArr.map(d=>d.carb)), dailyCarbAvg=nDays?dayArr.reduce((a,d)=>a+d.carb,0)/nDays:null;
   const dailyFiberMed=median(dayArr.map(d=>d.fiber));
   const snackTotal=pMeals.filter(m=>m.mealType==="間食").length, snackPerDay=nDays?snackTotal/nDays:null;
+  const dateStr=new Date().toLocaleString("ja-JP",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+  const rangeStr=`${from} 〜 ${to.slice(5)}`;
+  const kpi=(l,v,u,s)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v!=null?v:"—"}${v!=null&&u?`<small>${u}</small>`:""}</div><div class="s">${s}</div></div>`;
   $("report").innerHTML=`
-    <h1>血糖・食事・インスリン記録（主治医用レポート）</h1>
-    <div class="meta">出力日: ${new Date().toLocaleString("ja-JP")}　／　集計期間: ${label}　／　該当 ${sorted.length} 件の記録</div>
-    <div class="charts-row">
-      <div class="chart"><div class="chart-h">食後血糖の推移（○食前 → ●食後 ／ 縦帯=時間帯別の目標域）</div>${chartBG()}</div>
-      <div class="chart"><div class="chart-h">TDD（1日インスリン総量）の推移</div>${chartTDD()}</div>
+    <div class="rpt-head">
+      <div>
+        <div class="kicker">CARB · GLUCOSE · INSULIN REPORT</div>
+        <h1 class="mincho">血糖・食事・インスリン記録</h1>
+      </div>
+      <div class="org"><b>主治医用レポート</b>自己記録の集計資料</div>
     </div>
-    <div class="meta">
-      集計（中央値・対象${used.length}件）: 全体 ${overall!=null?fmt(overall,1)+" g/単位":"—"}　／　${bm}<br>
-      平均TDD: ${avgTDD!=null?fmt(avgTDD,1)+" U/日（期間内"+count+"日）":"—"}
+    <div class="rpt-metabar">
+      <span>出力 <b>${dateStr}</b></span><span>集計期間 <b>${rangeStr}</b></span><span>該当 <b>${sorted.length}</b> 件</span>
     </div>
-    <div style="font-weight:700;font-size:10px;margin:3mm 0 1mm">栄養サマリー <span style="font-weight:400;color:#555">（糖質・食物繊維の記録の集計／脂質・タンパク質・総カロリーは記録対象外）</span></div>
-    <table>
-      <tr><th style="text-align:left">糖質量</th><th>全体</th><th>朝</th><th>昼</th><th>夕</th><th>間食</th></tr>
-      <tr><td style="text-align:left">中央値 (g)　<span style="color:#888;font-weight:400">（件数）</span></td><td>${carbAll!=null?fmt(carbAll,1):"—"}</td>${carbByMeal.map(b=>`<td>${b.md!=null?fmt(b.md,1):"—"}${b.n?`<span style="color:#888"> (${b.n})</span>`:""}</td>`).join("")}</tr>
-    </table>
-    <table>
-      <tr><th>1日あたり糖質総量</th><th>食物繊維 中央値</th><th>間食</th><th>記録日数</th></tr>
-      <tr>
-        <td>中央 ${dailyCarbMed!=null?fmt(dailyCarbMed,1)+" g":"—"} ／ 平均 ${dailyCarbAvg!=null?fmt(dailyCarbAvg,1)+" g":"—"}</td>
-        <td>1食 ${fiberAll!=null?fmt(fiberAll,1)+" g":"—"} ／ 1日 ${dailyFiberMed!=null?fmt(dailyFiberMed,1)+" g":"—"}</td>
-        <td>計 ${snackTotal} 回 ／ 1日 ${snackPerDay!=null?fmt(snackPerDay,1):"—"} 回</td>
-        <td>${nDays} 日</td>
-      </tr>
-    </table>
-    <table>
-      <tr><th>日時</th><th>区分</th><th>糖質(g)</th><th>単位(U)</th><th>食前</th><th>食後</th><th>糖質/単位</th><th>集計対象</th></tr>
-      ${rows}
-    </table>
+    <div class="kpis">
+      ${kpi("糖質/単位 中央値", overall!=null?fmt(overall,1):null, "g/U", "対象 "+used.length+" 件")}
+      ${kpi("平均 TDD", avgTDD!=null?fmt(avgTDD,1):null, "U/日", count+" 日")}
+      ${kpi("1日 糖質", dailyCarbMed!=null?fmt(dailyCarbMed,0):null, "g", "中央値 / 日")}
+      ${kpi("食物繊維", dailyFiberMed!=null?fmt(dailyFiberMed,1):null, "g", "1日 中央値")}
+    </div>
+
+    <div class="block">
+      <div class="sec"><span class="t mincho">血糖・インスリンの推移</span></div>
+      <div class="charts-row">
+        <div class="chart"><div class="chart-h">食後血糖（○食前 → ●食後 ／ 縦帯 時間帯別目標域）</div>${chartBG()}</div>
+        <div class="chart"><div class="chart-h">TDD（1日インスリン総量）の推移</div>${chartTDD()}</div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="sec"><span class="t mincho">栄養サマリー</span><span class="hint">糖質・食物繊維の記録の集計／脂質・タンパク質・総カロリーは対象外</span></div>
+      <table>
+        <tr><th style="text-align:left">糖質量 (g)</th><th>全体</th><th>朝</th><th>昼</th><th>夕</th><th>間食</th></tr>
+        <tr><td style="text-align:left">中央値 <span style="color:#8a9893;font-weight:400">（件数）</span></td><td class="kfig">${carbAll!=null?fmt(carbAll,1):"—"}</td>${carbByMeal.map(b=>`<td>${b.md!=null?fmt(b.md,1):"—"}${b.n?`<span style="color:#8a9893"> (${b.n})</span>`:""}</td>`).join("")}</tr>
+      </table>
+      <table>
+        <tr><th>1日あたり糖質総量</th><th>食物繊維 中央値</th><th>間食</th><th>記録日数</th></tr>
+        <tr>
+          <td>中央 ${dailyCarbMed!=null?fmt(dailyCarbMed,1)+" g":"—"} ／ 平均 ${dailyCarbAvg!=null?fmt(dailyCarbAvg,1)+" g":"—"}</td>
+          <td>1食 ${fiberAll!=null?fmt(fiberAll,1)+" g":"—"} ／ 1日 ${dailyFiberMed!=null?fmt(dailyFiberMed,1)+" g":"—"}</td>
+          <td>計 ${snackTotal} 回 ／ 1日 ${snackPerDay!=null?fmt(snackPerDay,1):"—"} 回</td>
+          <td>${nDays} 日</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="block">
+      <div class="sec"><span class="t mincho">記録明細</span><span class="hint">集計対象＝食前後の血糖差が±${BG_TOL} mg/dL以内</span></div>
+      <table>
+        <thead><tr><th>日時</th><th>区分</th><th>糖質(g)</th><th>単位(U)</th><th>食前</th><th>食後</th><th>糖質/単位</th><th>集計対象</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
     <div class="note">
       本レポートは患者の自己記録を整理したものです。「糖質/単位」は公知のカーボカウント法の基本式（糖質g÷インスリン単位）の機械的計算、
       集計対象は食前後の血糖差が±${BG_TOL} mg/dL以内に収まった食事です。
-      本資料は治療パラメータや投与量を決定するものではありません。判断は医師にご確認ください。
+      本資料は治療パラメータや投与量を決定するものではありません。<b>判断は医師にご確認ください。</b>
     </div>`;
   return sorted.length;
 }
