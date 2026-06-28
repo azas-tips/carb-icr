@@ -934,7 +934,14 @@ $("print-report").addEventListener("click",()=>{
   window.print();
 });
 // ボタンを使わずブラウザの印刷で直接刷られた場合も、印刷直前にレポートを生成し#reportだけが出るようにする
-window.addEventListener("beforeprint",()=>{ if(meals.length) buildReport(); });
+// PDF保存時のファイル名は document.title 由来なので、印刷直前に集計期間を入れ、印刷後に戻す。
+const _origTitle=document.title;
+window.addEventListener("beforeprint",()=>{
+  if(meals.length) buildReport();
+  const p=aggPeriod();
+  document.title=`主治医用レポート_${p.from||"開始"}〜${p.to}`;
+});
+window.addEventListener("afterprint",()=>{ document.title=_origTitle; });
 /* 集計期間セレクタ → 画面の集計・レポートとグラフに連動。ICRページ/グラフページの2つのUIで同じ期間を共有 */
 const PERIOD_UI={icr:{sel:"agg-period",from:"agg-from",to:"agg-to",box:"agg-custom"},
                  chart:{sel:"chart-period",from:"chart-from",to:"chart-to",box:"chart-custom"}};
